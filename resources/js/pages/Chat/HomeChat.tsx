@@ -85,8 +85,8 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   return (
     <AppLayout>
       <section className="site-home-intro"><h1>{site.homepage_title}</h1>{site.homepage_description ? <p>{site.homepage_description}</p> : null}</section>
-      {/* Top Banner & Room Switcher */}
-      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800/80 w-full min-w-0">
+      {/* Top Banner */}
+      <div className="mb-4 flex items-center justify-between gap-3 pb-3 border-b border-slate-800/80 w-full min-w-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-cyan-950/60 border border-cyan-500/30 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(6,182,212,0.25)] flex-shrink-0 select-none animate-pulse">
             👻
@@ -99,42 +99,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                 PUBLIC CHAT
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-mono line-clamp-1 sm:line-clamp-none">
-              {room.description || 'Welcome to the public anonymous chatbox. Speak freely with zero tracking.'}
-            </p>
           </div>
-        </div>
-
-        {/* Quick Room Switcher Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto py-1 font-mono text-xs w-full min-w-0 max-w-full">
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider mr-1 hidden sm:inline">Rooms:</span>
-          {rooms.map((r) => {
-            const isActive = r.slug === room.slug;
-            return (
-              <Link
-                key={r.public_id}
-                href={r.slug === 'common-orbit' ? '/' : `/chat/${r.slug}`}
-                className={`px-3 py-1.5 rounded-lg border whitespace-nowrap transition flex items-center gap-1.5 ${
-                  isActive
-                    ? 'bg-cyan-950/80 border-cyan-500/60 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.12)]'
-                    : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                }`}
-              >
-                <span>#{r.name}</span>
-                {typeof r.messages_count === 'number' && (
-                  <span className="text-[10px] text-slate-500">({r.messages_count})</span>
-                )}
-              </Link>
-            );
-          })}
-          <Link
-            href="/chat"
-            className="px-2.5 py-1.5 rounded-lg border border-dashed border-slate-800 hover:border-cyan-500/50 text-slate-500 hover:text-cyan-300 transition flex items-center gap-1 text-[11px]"
-            title="Browse or create rooms"
-          >
-            <Plus size={12} />
-            <span>All</span>
-          </Link>
         </div>
       </div>
 

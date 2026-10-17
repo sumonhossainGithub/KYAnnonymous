@@ -146,7 +146,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </span>
             <div className="flex flex-col leading-none">
               <span className="font-mono font-bold tracking-wider text-sm text-slate-100">{site.site_name}</span>
-              <span className="font-mono text-[7px] tracking-[1.5px] text-cyan-400 mt-0.5">{site.tagline}</span>
+              {site.tagline ? <span className="font-mono text-[7px] tracking-[1.5px] text-cyan-400 mt-0.5">{site.tagline}</span> : null}
             </div>
           </Link>
 
@@ -321,9 +321,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                   <span className="font-mono font-bold tracking-wider text-xs sm:text-sm text-slate-100 group-hover:text-white transition">
                     {site.site_name}
                   </span>
-                  <span className="font-mono text-[7px] tracking-[1.5px] text-cyan-400 mt-0.5 font-semibold hidden sm:inline">
-                    {site.tagline}
-                  </span>
+                  {site.tagline ? (
+                    <span className="font-mono text-[7px] tracking-[1.5px] text-cyan-400 mt-0.5 font-semibold hidden sm:inline">
+                      {site.tagline}
+                    </span>
+                  ) : null}
                 </div>
               </Link>
 
