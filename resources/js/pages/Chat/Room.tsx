@@ -286,11 +286,12 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
               </div>
             )}
 
-            {messages.filter(message => !searchTerm || [message.message, message.sender.display_name, ...(message.sub_chats || []).map(reply => reply.message)].some(text => text.toLowerCase().includes(searchTerm.toLowerCase()))).map((message) => {
+            {messages.filter(message => !searchTerm || [message.message, message.sender.display_name, ...(message.sub_chats || []).map(reply => reply.message)].some(text => text.toLowerCase().includes(searchTerm.toLowerCase()))).map((message, index, arr) => {
               const own = Boolean(message.is_own || mySentIds.has(message.public_id) || (auth.user && message.sender.public_id === auth.user?.public_id));
               const isGhost = message.is_ghost || message.sender.is_ghost || message.is_guest;
               const isSubChatOpen = activeSubChatId === message.public_id;
               const subCount = message.sub_chats?.length || message.sub_chats_count || 0;
+              const isLastMessage = index === arr.length - 1;
 
               return (
                 <article
@@ -319,33 +320,42 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
 
                     {/* Bubble and Action buttons placed side-by-side */}
                     <div className={`flex items-end gap-2 ${own ? 'flex-row-reverse' : 'flex-row'}`}>
-                      <div
-                        className={`message-bubble relative font-sans cursor-pointer transition select-none ${touchedMessageId === message.public_id ? 'show-time' : ''}`}
-                        onClick={(e) => handleMessageTapOrClick(message, e.currentTarget)}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
-                          void handleButterflyReact(message, e.currentTarget);
-                        }}
-                        title="Double-tap to magic butterfly · Tap to view timestamp"
-                      >
-                        {/* Perched Garden Butterfly sitting on the message */}
-                        {(message.butterfly_count ?? 0) > 0 && (
-                          <span
-                            className="perched-butterfly absolute -top-2.5 -right-2 px-1.5 py-0.5 rounded-full bg-emerald-950/95 border border-emerald-400/50 text-[10px] font-mono text-emerald-200 shadow-[0_0_12px_rgba(52,211,153,0.5)] flex items-center gap-1 z-10"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleButterflyReact(message, e.currentTarget);
-                            }}
-                            title="A garden butterfly is resting here! Double-tap message to magic another"
-                          >
-                            <span className="text-xs">🦋</span>
-                            <span>{message.butterfly_count}</span>
+                      <div className={`flex flex-col ${own ? 'items-end' : 'items-start'}`}>
+                        <div
+                          className={`message-bubble relative font-sans cursor-pointer transition select-none ${touchedMessageId === message.public_id ? 'show-time' : ''}`}
+                          onClick={(e) => handleMessageTapOrClick(message, e.currentTarget)}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+                            void handleButterflyReact(message, e.currentTarget);
+                          }}
+                          title="Double-tap to magic butterfly · Tap to view timestamp"
+                        >
+                          {/* Perched Garden Butterfly sitting on the message */}
+                          {(message.butterfly_count ?? 0) > 0 && (
+                            <span
+                              className="perched-butterfly absolute -top-2.5 -right-2 px-1.5 py-0.5 rounded-full bg-emerald-950/95 border border-emerald-400/50 text-[10px] font-mono text-emerald-200 shadow-[0_0_12px_rgba(52,211,153,0.5)] flex items-center gap-1 z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleButterflyReact(message, e.currentTarget);
+                              }}
+                              title="A garden butterfly is resting here! Double-tap message to magic another"
+                            >
+                              <span className="text-xs">🦋</span>
+                              <span>{message.butterfly_count}</span>
+                            </span>
+                          )}
+
+                          <p>{message.message}</p>
+                          <time className="font-mono text-[10px]">{message.created_at}</time>
+                        </div>
+
+                        {/* Hint just under the last message */}
+                        {isLastMessage && (
+                          <span className={`text-[10px] font-mono text-cyan-400/80 select-none mt-0.5 px-0.5 ${own ? 'text-right' : 'text-left'}`}>
+                            double tap to magic
                           </span>
                         )}
-
-                        <p>{message.message}</p>
-                        <time className="font-mono text-[10px]">{message.created_at}</time>
                       </div>
 
                       {/* Action buttons on the side of the message */}
@@ -499,12 +509,6 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
               );
             })}
 
-            {messages.length > 0 && (
-              <div className="flex items-center justify-center gap-1.5 py-2 my-1 text-[11px] font-mono text-emerald-400/70 select-none animate-pulse">
-                <span>✨</span>
-                <span>double tap to magic 🦋</span>
-              </div>
-            )}
           </div>
 
           {unread && (
