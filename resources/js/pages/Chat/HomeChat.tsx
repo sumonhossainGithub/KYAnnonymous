@@ -42,6 +42,15 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
 
   // Track which message has its sub-chat open
   const [activeSubChatId, setActiveSubChatId] = useState<string | null>(null);
+  const [touchedMessageId, setTouchedMessageId] = useState<string | null>(null);
+  const [mySentIds, setMySentIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('ky_my_sent_messages');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
 
   const latest = messages.at(-1)?.public_id;
@@ -133,8 +142,8 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             </div>
 
             {messages.filter(message => !searchTerm || [message.message, message.sender.display_name, ...(message.sub_chats || []).map(reply => reply.message)].some(text => text.toLowerCase().includes(searchTerm.toLowerCase()))).map((message) => {
-              const own = message.sender.public_id === auth.user?.public_id;
-              const isGhost = message.is_ghost || message.sender.is_ghost;
+              const own = Boolean(message.is_own || mySentIds.has(message.public_id) || (auth.user && message.sender.public_id === auth.user?.public_id));
+              const isGhost = message.is_ghost || message.sender.is_ghost || message.is_guest;
               const isSubChatOpen = activeSubChatId === message.public_id;
               const subCount = message.sub_chats?.length || message.sub_chats_count || 0;
 
@@ -155,51 +164,43 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
 
                   <div className="chat-message-content">
                     <div className="message-meta font-mono text-[11px]">
-                      <strong className={isGhost ? 'text-cyan-300' : ''}>
+                      <strong className={isGhost ? 'text-cyan-300' : 'text-slate-200'}>
                         {own ? 'You' : message.sender.display_name}
                       </strong>
-                      <span className="text-slate-500">@{message.sender.username}</span>
-                      {isGhost && (
-                        <span className="text-[9px] px-1 bg-cyan-950/80 border border-cyan-800 text-cyan-300 rounded">
-                          ANONYMOUS
-                        </span>
-                      )}
-                      {message.is_guest && (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-950/80 border border-cyan-600/40 text-cyan-300 font-mono inline-flex items-center gap-1" title="Ghost message · Chat history will not remain">
-                          <Ghost size={10} className="text-cyan-400" />
-                          <span>GHOST · EPHEMERAL</span>
-                        </span>
+                      {!isGhost && !message.is_guest && (
+                        <span className="text-slate-500">@{message.sender.username}</span>
                       )}
                     </div>
 
-                    <div className="message-bubble font-sans">
-                      <p>{message.message}</p>
-                      <time className="font-mono text-[10px]">{message.created_at}</time>
-                    </div>
+                    {/* Bubble and Reply button placed side-by-side */}
+                    <div className={`flex items-end gap-2 ${own ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <div
+                        className={`message-bubble font-sans cursor-pointer transition select-none ${touchedMessageId === message.public_id ? 'show-time' : ''}`}
+                        onClick={() => setTouchedMessageId(touchedMessageId === message.public_id ? null : message.public_id)}
+                        title="Click or tap to view timestamp"
+                      >
+                        <p>{message.message}</p>
+                        <time className="font-mono text-[10px]">{message.created_at}</time>
+                      </div>
 
-                    {auth.user?.role === 'SUPER_ADMIN' && <button type="button" className="text-xs text-rose-300 mt-2" disabled={live.sending} onClick={() => removeMessage(message.public_id)}>Remove message</button>}
-                    {/* Sub-chat Action Button */}
-                    <div className="mt-1.5 flex items-center gap-2 font-mono text-[11px]">
+                      {/* Reply button on the right side of the message */}
                       <button
                         type="button"
                         onClick={() => setActiveSubChatId(isSubChatOpen ? null : message.public_id)}
-                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md transition ${
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md transition text-[11px] font-mono flex-shrink-0 ${
                           isSubChatOpen
                             ? 'bg-cyan-950 border border-cyan-500/50 text-cyan-300'
                             : 'bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200'
                         }`}
+                        title="Reply in Sub-chat"
                       >
                         <MessageSquare size={11} className={subCount > 0 ? 'text-cyan-400' : ''} />
-                        <span>{subCount > 0 ? `Sub-chat (${subCount})` : 'Reply in Sub-chat'}</span>
+                        <span>{subCount > 0 ? `Reply (${subCount})` : 'Reply'}</span>
                         <CornerDownRight size={10} className="text-slate-500" />
                       </button>
-
-                      {subCount > 0 && !isSubChatOpen && (
-                        <span className="text-[10px] text-slate-500">
-                          {subCount} {subCount === 1 ? 'reply' : 'replies'} in thread
-                        </span>
-                      )}
                     </div>
+
+                    {auth.user?.role === 'SUPER_ADMIN' && <button type="button" className="text-xs text-rose-300 mt-2" disabled={live.sending} onClick={() => removeMessage(message.public_id)}>Remove message</button>}
 
                     {/* Sub-chat Drawer / Nested Thread */}
                     {isSubChatOpen && (
@@ -223,12 +224,12 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                         {message.sub_chats && message.sub_chats.length > 0 ? (
                           <div className="space-y-2 mb-3 max-h-56 overflow-y-auto pr-1">
                             {message.sub_chats.map((sub) => {
-                              const isSubGhost = sub.is_ghost || sub.sender.is_ghost;
-                              const isSubOwn = sub.sender.public_id === auth.user?.public_id;
+                              const isSubGhost = sub.is_ghost || sub.sender.is_ghost || sub.is_guest;
+                              const isSubOwn = Boolean(sub.is_own || mySentIds.has(sub.public_id) || (auth.user && sub.sender.public_id === auth.user?.public_id));
                               return (
                                 <div
                                   key={sub.public_id}
-                                  className={`p-2 rounded-lg text-xs ${
+                                  className={`p-2 rounded-lg text-xs group transition ${
                                     isSubOwn ? 'bg-cyan-950/40 border border-cyan-800/40' : 'bg-slate-950/60 border border-slate-800/60'
                                   }`}
                                 >
@@ -243,22 +244,11 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                                           <span className="text-[9px] text-cyan-300 font-bold">{sub.sender.display_name.slice(0, 1).toUpperCase()}</span>
                                         )}
                                       </span>
-                                      <span>{isSubOwn ? 'You' : sub.sender.display_name}</span>
-                                      {isSubGhost && (
-                                        <span className="text-[8px] px-1 bg-cyan-950 border border-cyan-800 text-cyan-300 rounded">
-                                          GHOST
-                                        </span>
-                                      )}
-                                      {sub.is_guest && (
-                                        <span className="text-[8px] px-1 bg-cyan-950/80 border border-cyan-600/40 text-cyan-300 rounded inline-flex items-center gap-0.5" title="Ghost sub-reply · Ephemeral">
-                                          <Ghost size={9} className="text-cyan-400" />
-                                          <span>GHOST</span>
-                                        </span>
-                                      )}
+                                      <span className={isSubGhost ? 'text-cyan-300' : ''}>{isSubOwn ? 'You' : sub.sender.display_name}</span>
                                     </span>
-                                    <span className="text-slate-500">{sub.created_at}</span>
+                                    <span className="text-slate-500 opacity-60 group-hover:opacity-100 transition">{sub.created_at}</span>
                                   </div>
-                                  <p className="text-slate-200 font-sans">{sub.message}</p>
+                                  <p className="text-slate-200 font-sans pl-5">{sub.message}</p>
                                   {auth.user?.role === 'SUPER_ADMIN' && <button type="button" className="text-xs text-rose-300 mt-2" disabled={live.sending} onClick={() => removeMessage(sub.public_id)}>Remove reply</button>}
                                 </div>
                               );

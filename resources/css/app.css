@@ -1731,11 +1731,26 @@ textarea {
   text-align: right;
   font-size: 9px;
   color: #94a3b8;
-  margin-top: 3px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease, opacity 0.2s ease, margin-top 0.2s ease;
+  margin-top: 0;
 }
 
 .chat-message.own .message-bubble time {
   color: rgba(255, 255, 255, 0.85);
+}
+
+.message-bubble:hover time,
+.message-bubble:active time,
+.message-bubble.show-time time,
+.chat-message:hover time,
+.chat-message:active time,
+.chat-message.show-time time {
+  max-height: 24px;
+  opacity: 1;
+  margin-top: 3px;
 }
 
 .chat-message.grouped {

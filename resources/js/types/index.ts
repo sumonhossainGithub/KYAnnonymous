@@ -113,6 +113,7 @@ export interface ChatSubMessage {
   created_at: string;
   is_ghost?: boolean;
   is_guest?: boolean;
+  is_own?: boolean;
   sender: ChatSender;
 }
 
@@ -122,6 +123,7 @@ export interface ChatMessageItem {
   created_at: string;
   is_ghost?: boolean;
   is_guest?: boolean;
+  is_own?: boolean;
   sender: ChatSender;
   sub_chats?: ChatSubMessage[];
   sub_chats_count?: number;

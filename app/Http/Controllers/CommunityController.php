@@ -177,7 +177,7 @@ class CommunityController extends Controller
         }
 
         $adminStealth = \App\Models\AppSetting::isTrue('admin_stealth_mode');
-        $messages = $this->loadMessagesForRoom($room->id, $adminStealth);
+        $messages = $this->loadMessagesForRoom($room->id, $adminStealth, $request->user()?->id);
 
         return Inertia::render('Chat/HomeChat', [
             'room' => [
@@ -212,7 +212,7 @@ class CommunityController extends Controller
         }
 
         $adminStealth = \App\Models\AppSetting::isTrue('admin_stealth_mode');
-        $messages = $isLocked ? [] : $this->loadMessagesForRoom($room->id, $adminStealth);
+        $messages = $isLocked ? [] : $this->loadMessagesForRoom($room->id, $adminStealth, $request->user()?->id);
 
         return Inertia::render('Chat/Room', [
             'room' => [
@@ -274,10 +274,12 @@ class CommunityController extends Controller
         }
     }
 
-    protected function loadMessagesForRoom(int $roomId, bool $adminStealth)
+    protected function loadMessagesForRoom(int $roomId, bool $adminStealth, ?int $userId = null)
     {
         // Public chat retention: all messages (logged in or guest) remain available for 30 days
         ChatMessage::where('created_at', '<', now()->subDays(30))->delete();
+
+        $mySent = (array) session('my_message_ids', []);
 
         return ChatMessage::with(['sender', 'subChats' => fn ($query) => $query->orderBy('id'), 'subChats.sender'])
             ->where('chat_room_id', $roomId)
@@ -288,9 +290,11 @@ class CommunityController extends Controller
             ->get()
             ->reverse()
             ->values()
-            ->map(function ($m) use ($adminStealth) {
+            ->map(function ($m) use ($adminStealth, $userId, $mySent) {
                 $sender = $this->formatSender($m, $adminStealth);
-                $subChats = $m->subChats->map(function ($sub) use ($adminStealth, $m) {
+                $isOwn = ($userId && $m->user_id === $userId) || in_array($m->public_id, $mySent);
+                $subChats = $m->subChats->map(function ($sub) use ($adminStealth, $m, $userId, $mySent) {
+                    $isSubOwn = ($userId && $sub->user_id === $userId) || in_array($sub->public_id, $mySent);
                     return [
                         'public_id' => $sub->public_id,
                         'parent_public_id' => $m->public_id,
@@ -298,6 +302,7 @@ class CommunityController extends Controller
                         'created_at' => $sub->created_at->isToday() ? $sub->created_at->format('H:i') : $sub->created_at->format('M j, H:i'),
                         'is_ghost' => (bool) ($sub->is_ghost ?? false),
                         'is_guest' => (bool) ($sub->is_guest ?? false),
+                        'is_own' => $isSubOwn,
                         'sender' => $this->formatSender($sub, $adminStealth),
                     ];
                 })->values();
@@ -308,6 +313,7 @@ class CommunityController extends Controller
                     'created_at' => $m->created_at->isToday() ? $m->created_at->format('H:i') : $m->created_at->format('M j, H:i'),
                     'is_ghost' => (bool) ($m->is_ghost ?? false),
                     'is_guest' => (bool) ($m->is_guest ?? false),
+                    'is_own' => $isOwn,
                     'sender' => $sender,
                     'sub_chats' => $subChats,
                     'sub_chats_count' => $subChats->count(),
@@ -392,7 +398,7 @@ class CommunityController extends Controller
             $parentId = $parentMsg->parent_id ?: $parentMsg->id;
         }
 
-        ChatMessage::create([
+        $chatMsg = ChatMessage::create([
             'chat_room_id' => $room->id,
             'parent_id' => $parentId,
             'user_id' => $user ? $user->id : null,
@@ -403,6 +409,8 @@ class CommunityController extends Controller
             'alias_name' => $aliasName,
         ]);
 
+        $request->session()->push('my_message_ids', $chatMsg->public_id);
+
         return $request->expectsJson() ? response()->json($this->chatPayload($request, $room), 201)->header('Cache-Control', 'no-store') : back();
     }
 
@@ -411,7 +419,7 @@ class CommunityController extends Controller
         $site = SiteSettings::all();
         $locked = \App\Models\AppSetting::isTrue('emergency_lockdown') && !$request->user()?->isSuperAdmin();
         return [
-            'messages' => $this->loadMessagesForRoom($room->id, \App\Models\AppSetting::isTrue('admin_stealth_mode')),
+            'messages' => $this->loadMessagesForRoom($room->id, \App\Models\AppSetting::isTrue('admin_stealth_mode'), $request->user()?->id),
             'policy' => [
                 'can_send' => $site['chat_enabled'] && !$locked && ($request->user() !== null || $site['guest_chat_enabled']),
                 'reason' => !$site['chat_enabled'] || $locked ? 'Chat is temporarily paused by admin.' : (!$request->user() && !$site['guest_chat_enabled'] ? 'Sign in to send messages.' : ''),
