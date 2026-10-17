@@ -84,7 +84,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
 
   return (
     <AppLayout>
-      <section className="site-home-intro"><h1>{site.homepage_title}</h1><p>{site.homepage_description}</p></section>
+      <section className="site-home-intro"><h1>{site.homepage_title}</h1>{site.homepage_description ? <p>{site.homepage_description}</p> : null}</section>
       {/* Top Banner & Room Switcher */}
       <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800/80 w-full min-w-0">
         <div className="flex items-center gap-3 min-w-0">

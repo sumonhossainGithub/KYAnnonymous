@@ -75,9 +75,11 @@ export default function Index({
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100">
                 {site.homepage_title}
               </h1>
-              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed font-sans">
-                {site.homepage_description}
-              </p>
+              {site.homepage_description ? (
+                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed font-sans">
+                  {site.homepage_description}
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Link

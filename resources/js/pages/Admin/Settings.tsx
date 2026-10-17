@@ -82,7 +82,7 @@ export default function Settings({ settings, defaults, rooms }: Props) {
       <aside className="settings-preview"><span className="eyebrow">LIVE PREVIEW · NOT SAVED YET</span><div className={`site-theme preview-surface density-${form.data.density}`} style={siteThemeStyle(form.data)}>
         <header><span className="preview-logo">{form.data.logo_text}</span><div><strong>{form.data.site_name}</strong><small>{form.data.tagline}</small></div></header>
         {form.data.announcement_enabled && <p className="site-announcement">{form.data.announcement_text || 'Your announcement'}</p>}
-        <h2>{form.data.homepage_title}</h2><p>{form.data.homepage_description}</p><div className="preview-card"><strong>A place to connect</strong><p>{form.data.welcome_message}</p><button type="button" className="button" tabIndex={-1}>Join the conversation</button></div><small>{form.data.footer_text}</small>
+        <h2>{form.data.homepage_title}</h2>{form.data.homepage_description ? <p>{form.data.homepage_description}</p> : null}<div className="preview-card"><strong>A place to connect</strong><p>{form.data.welcome_message}</p><button type="button" className="button" tabIndex={-1}>Join the conversation</button></div><small>{form.data.footer_text}</small>
       </div><p className="settings-preview-note">Preview updates while you edit. Save to apply changes across the website.</p></aside>
     </div>
   </div></AppLayout>;
