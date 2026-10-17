@@ -1,0 +1,103 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-kyanonymous}
+      DB_USERNAME: ${DB_USERNAME:-ky_user}
+      DB_PASSWORD: ${DB_PASSWORD:-ky_secure_password}
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      SESSION_DRIVER: database
+      BROADCAST_CONNECTION: reverb
+    volumes:
+      - app_storage:/var/www/html/storage
+    networks:
+      - internal_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  reverb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    environment:
+      APP_ENV: production
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+    networks:
+      - internal_net
+    depends_on:
+      - valkey
+
+  postgres:
+    image: postgres:18.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-kyanonymous}
+      POSTGRES_USER: ${DB_USERNAME:-ky_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ky_secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-ky_user} -d ${DB_DATABASE:-kyanonymous}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  valkey:
+    image: valkey/valkey:9.1.1-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--protected-mode", "no", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    networks:
+      - internal_net
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./public:/var/www/html/public:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal_net
+    depends_on:
+      - app
+      - reverb
+
+networks:
+  internal_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  app_storage:
+  caddy_data:
+  caddy_config:

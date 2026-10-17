@@ -1,0 +1,33 @@
+{
+    # Global options
+    admin off
+}
+
+{$APP_DOMAIN:localhost} {
+    # Privacy: minimize logging and strip persistent raw IP addresses (§31)
+    log {
+        output discard
+    }
+
+    # Proxy WebSocket connections to Laravel Reverb
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websockets reverb:8080
+
+    # Serve built static assets directly
+    root * /var/www/html/public
+    file_server
+
+    # Forward dynamic requests to PHP-FPM
+    php_fastcgi app:9000
+
+    # Privacy and security headers
+    header {
+        -Server
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}

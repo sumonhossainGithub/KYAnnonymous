@@ -1,0 +1,16 @@
+.env
+/vendor
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/.phpunit.cache
+*.log
+last_error.txt
+
+/database/*.sqlite
+/storage/framework/
+/storage/logs/
+/storage/app/responsive-review/
+/bootstrap/cache/*.php
