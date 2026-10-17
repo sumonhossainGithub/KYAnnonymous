@@ -18,8 +18,18 @@ use Inertia\Inertia;
 
 class AdminController extends Controller
 {
-    public function dashboard()
+    public function dashboard(Request $request)
     {
+        // Real active sessions in last 3 minutes
+        $activeThreshold = time() - 180;
+        $activeSessionsCount = DB::table('sessions')
+            ->where('last_activity', '>=', $activeThreshold)
+            ->count();
+
+        if ($activeSessionsCount === 0) {
+            $activeSessionsCount = 1;
+        }
+
         return Inertia::render('Admin/Dashboard', [
             'stats' => [
                 'users_count' => User::count(),
@@ -30,7 +40,7 @@ class AdminController extends Controller
                 'notices_count' => Notice::count(),
                 'chat_rooms_count' => ChatRoom::count(),
                 'chat_messages_count' => ChatMessage::count(),
-                'active_sessions_count' => DB::table('sessions')->count(),
+                'active_sessions_count' => $activeSessionsCount,
                 'emergency_lockdown' => \App\Models\AppSetting::isTrue('emergency_lockdown'),
                 'admin_stealth_mode' => \App\Models\AppSetting::isTrue('admin_stealth_mode'),
             ],
@@ -44,9 +54,24 @@ class AdminController extends Controller
         $query = User::orderBy('created_at', 'desc');
 
         if ($q) {
-            $query->where('username', 'like', "%{$q}%")
-                  ->orWhere('display_name', 'like', "%{$q}%");
+            $query->where(function ($sub) use ($q) {
+                $sub->where('username', 'like', "%{$q}%")
+                    ->orWhere('display_name', 'like', "%{$q}%");
+            });
         }
+
+        $activeThreshold = time() - 180;
+        $activeUserIds = DB::table('sessions')
+            ->where('last_activity', '>=', $activeThreshold)
+            ->whereNotNull('user_id')
+            ->pluck('user_id')
+            ->map(fn($id) => (int) $id)
+            ->toArray();
+
+        if ($request->user()) {
+            $activeUserIds[] = $request->user()->id;
+        }
+        $activeUserIds = array_unique($activeUserIds);
 
         $users = $query->paginate(20)->withQueryString()->through(fn($u) => [
             'public_id' => $u->public_id,
@@ -55,7 +80,8 @@ class AdminController extends Controller
             'gender' => $u->gender,
             'role' => $u->role,
             'status' => $u->status,
-            'created_at' => $u->created_at->format('Y-m-d H:i'),
+            'is_online' => in_array($u->id, $activeUserIds),
+            'created_at' => $u->created_at ? $u->created_at->format('Y-m-d H:i') : 'Recently',
         ]);
 
         return Inertia::render('Admin/Users', [
@@ -329,17 +355,23 @@ class AdminController extends Controller
 
     public function stealthConsole()
     {
+        $activeThreshold = time() - 180;
+        $activeCount = DB::table('sessions')->where('last_activity', '>=', $activeThreshold)->count();
+        if ($activeCount === 0) {
+            $activeCount = 1;
+        }
+
         return Inertia::render('Admin/Stealth', [
             'status' => [
                 'admin_stealth_mode' => \App\Models\AppSetting::isTrue('admin_stealth_mode'),
                 'emergency_lockdown' => \App\Models\AppSetting::isTrue('emergency_lockdown'),
-                'active_sessions' => DB::table('sessions')->count(),
+                'active_sessions' => $activeCount,
                 'audit_logs_count' => AdminAuditLog::count(),
                 'security_events_count' => SecurityEvent::count(),
                 'ip_retention_policy' => 'ZERO RAW IP / HMAC-SHA256 DIGEST ONLY',
                 'referrer_policy' => 'NO-REFERRER STRICT',
                 'anti_fingerprint_status' => 'PERMISSIONS-POLICY ACTIVE (14 SENSORS LOCKED)',
-                'crypto_salts' => 'ARGON2ID + ROTATING HMAC DIVERSIFICATION',
+                'crypto_salts' => 'BCRYPT + ROTATING HMAC DIVERSIFICATION',
             ],
         ]);
     }

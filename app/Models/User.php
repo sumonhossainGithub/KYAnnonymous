@@ -33,7 +33,6 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'password' => 'hashed',
             'show_gender' => 'boolean',
             'force_password_reset' => 'boolean',
         ];

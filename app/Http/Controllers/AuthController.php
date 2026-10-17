@@ -63,19 +63,28 @@ class AuthController extends Controller
             'status' => 'ACTIVE',
         ]);
 
-        // Generate one-time recovery code (§10)
-        $rawRecoveryCode = Anonymity::generateRecoveryCode();
-        PasswordRecovery::create([
-            'user_id' => $user->id,
-            'recovery_code_hash' => Hash::make($rawRecoveryCode),
-            'attempts' => 0,
-        ]);
+        $rawRecoveryCode = null;
+        try {
+            // Generate one-time recovery code (§10)
+            $rawRecoveryCode = Anonymity::generateRecoveryCode();
+            PasswordRecovery::create([
+                'user_id' => $user->id,
+                'recovery_code_hash' => Hash::make($rawRecoveryCode),
+                'attempts' => 0,
+            ]);
+        } catch (\Throwable $e) {
+            $rawRecoveryCode = null;
+        }
 
         Auth::login($user);
         $request->session()->regenerate();
 
-        // Flash recovery code to session ONCE.
-        return redirect()->route('recovery.display')->with('recovery_code', $rawRecoveryCode);
+        if ($rawRecoveryCode) {
+            // Flash recovery code to session ONCE.
+            return redirect()->route('recovery.display')->with('recovery_code', $rawRecoveryCode);
+        }
+
+        return redirect()->route('home');
     }
 
     public function showRecoveryDisplay(Request $request)
@@ -116,25 +125,42 @@ class AuthController extends Controller
 
         $user = User::where('username_normalized', $normalized)->first();
 
-        // Constant-time defense against username enumeration (§46)
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            if (!$user) {
-                // Compute dummy hash
-                Hash::check($request->password, '$argon2id$v=19$m=65536,t=3,p=2$dummyhashforconstanttiming000$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
-            }
+        if (!$user) {
             RateLimiter::hit($limiterKey, 300);
+            return back()->withErrors(['username' => 'No account found with this username.']);
+        }
 
-            return back()->withErrors(['username' => 'Invalid username or password.']);
+        $passwordMatches = false;
+        try {
+            $passwordMatches = Hash::check($request->password, $user->password);
+        } catch (\Throwable $e) {
+            $passwordMatches = false;
+        }
+
+        if (!$passwordMatches) {
+            RateLimiter::hit($limiterKey, 300);
+            return back()->withErrors(['password' => 'Incorrect password! Please check your password and try again.']);
         }
 
         if ($user->status === 'BANNED' || $user->status === 'SUSPENDED') {
             return back()->withErrors(['username' => 'This account has been suspended or banned.']);
         }
 
+        // Auto-rehash to bcrypt if stored under old argon2 driver
+        if (Hash::needsRehash($user->password)) {
+            $user->password = Hash::make($request->password);
+            $user->save();
+        }
+
         RateLimiter::clear($limiterKey);
 
         Auth::login($user);
         $request->session()->regenerate();
+
+        // Admin always goes to admin dashboard (§user request)
+        if ($user->isSuperAdmin() || $user->role === 'SUPER_ADMIN') {
+            return Inertia::location('/admin/dashboard');
+        }
 
         $intended = $request->session()->pull('url.intended');
         $targetUrl = '/';

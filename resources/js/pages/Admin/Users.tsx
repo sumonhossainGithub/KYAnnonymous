@@ -10,6 +10,7 @@ interface UserItem {
   gender: string;
   role: string;
   status: string;
+  is_online?: boolean;
   created_at: string;
 }
 
@@ -118,15 +119,28 @@ export default function Users({ users, query }: Props) {
                     </span>
                   </td>
                   <td className="p-3.5">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                        u.status === 'ACTIVE'
-                          ? 'bg-emerald-950 border border-emerald-800 text-emerald-300'
-                          : 'bg-rose-950 border border-rose-800 text-rose-300'
-                      }`}
-                    >
-                      {u.status}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                          u.status === 'ACTIVE'
+                            ? 'bg-emerald-950 border border-emerald-800 text-emerald-300'
+                            : 'bg-rose-950 border border-rose-800 text-rose-300'
+                        }`}
+                      >
+                        {u.status}
+                      </span>
+                      {u.is_online ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-emerald-950 border border-emerald-500/50 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.3)]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>ONLINE</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono text-slate-500 bg-slate-900 border border-slate-800">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                          <span>OFFLINE</span>
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-3.5 text-slate-500 font-mono text-[11px]">{u.created_at}</td>
                   <td className="p-3.5 text-right">
