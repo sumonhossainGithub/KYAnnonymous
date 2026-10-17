@@ -17,12 +17,18 @@ class ChatMessage extends Model
         'is_guest',
         'is_ephemeral',
         'alias_name',
+        'butterfly_count',
+    ];
+
+    protected $attributes = [
+        'butterfly_count' => 0,
     ];
 
     protected $casts = [
         'is_ghost' => 'boolean',
         'is_guest' => 'boolean',
         'is_ephemeral' => 'boolean',
+        'butterfly_count' => 'integer',
     ];
 
     protected $hidden = ['id', 'chat_room_id', 'user_id', 'parent_id'];

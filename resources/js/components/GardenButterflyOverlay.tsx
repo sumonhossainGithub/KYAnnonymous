@@ -10,7 +10,7 @@ export interface ButterflyFlightInstance {
   controlY1: number;
   controlX2: number;
   controlY2: number;
-  colorScheme: string;
+  palette: ButterflyPalette;
   onLanded?: () => void;
 }
 
@@ -18,35 +18,114 @@ export interface GardenButterflyRef {
   flyTo: (targetRect: DOMRect, onLanded?: () => void) => void;
 }
 
-const BUTTERFLY_PALETTES = [
-  { primary: '#34d399', secondary: '#10b981', glow: 'rgba(52, 211, 153, 0.8)' }, // Emerald Moon
-  { primary: '#38bdf8', secondary: '#0284c7', glow: 'rgba(56, 189, 248, 0.8)' }, // Celestial Cyan
-  { primary: '#facc15', secondary: '#eab308', glow: 'rgba(250, 204, 21, 0.8)' }, // Golden Firefly
-  { primary: '#c084fc', secondary: '#9333ea', glow: 'rgba(192, 132, 252, 0.8)' }, // Night Orchid
+interface ButterflyPalette {
+  name: string;
+  primary: string;
+  secondary: string;
+  accent: string;
+  darkBorder: string;
+  glow: string;
+  trailColor: string;
+}
+
+const BUTTERFLY_PALETTES: ButterflyPalette[] = [
+  {
+    name: 'Emerald Swallowtail',
+    primary: '#10b981',
+    secondary: '#047857',
+    accent: '#6ee7b7',
+    darkBorder: '#022c22',
+    glow: 'rgba(52, 211, 153, 0.95)',
+    trailColor: '#6ee7b7',
+  },
+  {
+    name: 'Blue Morpho',
+    primary: '#0ea5e9',
+    secondary: '#0369a1',
+    accent: '#7dd3fc',
+    darkBorder: '#082f49',
+    glow: 'rgba(56, 189, 248, 0.95)',
+    trailColor: '#7dd3fc',
+  },
+  {
+    name: 'Sunset Monarch',
+    primary: '#f59e0b',
+    secondary: '#b45309',
+    accent: '#fde68a',
+    darkBorder: '#451a03',
+    glow: 'rgba(251, 191, 36, 0.95)',
+    trailColor: '#fde68a',
+  },
+  {
+    name: 'Night Velvet Orchid',
+    primary: '#a855f7',
+    secondary: '#6b21a8',
+    accent: '#e9d5ff',
+    darkBorder: '#3b0764',
+    glow: 'rgba(192, 132, 252, 0.95)',
+    trailColor: '#d8b4fe',
+  },
+  {
+    name: 'Rose Starlight',
+    primary: '#f43f5e',
+    secondary: '#9f1239',
+    accent: '#fecdd3',
+    darkBorder: '#4c0519',
+    glow: 'rgba(251, 113, 133, 0.95)',
+    trailColor: '#fda4af',
+  },
 ];
 
 export const GardenButterflyOverlay = forwardRef<GardenButterflyRef>((_, ref) => {
   const [flights, setFlights] = useState<ButterflyFlightInstance[]>([]);
 
   const flyTo = useCallback((targetRect: DOMRect, onLanded?: () => void) => {
-    // Spawn from outside/behind the chatbox in the garden (below or side of screen)
-    const fromBottom = Math.random() > 0.3;
-    const startX = fromBottom
-      ? Math.max(20, Math.min(window.innerWidth - 20, targetRect.left + (Math.random() - 0.5) * 300))
-      : Math.random() < 0.5 ? -50 : window.innerWidth + 50;
-    const startY = fromBottom ? window.innerHeight + 40 : window.innerHeight * 0.7;
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+
+    // Emerge from a random place in the background garden / starry sky
+    const spawnModes = ['top', 'bottom', 'left', 'right', 'deep_bg', 'deep_bg'];
+    const mode = spawnModes[Math.floor(Math.random() * spawnModes.length)];
+
+    let startX: number;
+    let startY: number;
+
+    switch (mode) {
+      case 'top':
+        startX = Math.random() * screenW;
+        startY = -50;
+        break;
+      case 'bottom':
+        startX = Math.random() * screenW;
+        startY = screenH + 50;
+        break;
+      case 'left':
+        startX = -50;
+        startY = Math.random() * screenH;
+        break;
+      case 'right':
+        startX = screenW + 50;
+        startY = Math.random() * screenH;
+        break;
+      case 'deep_bg':
+      default:
+        // Deep within the starry background garden
+        startX = Math.random() * (screenW * 0.9) + screenW * 0.05;
+        startY = Math.random() * (screenH * 0.65) + screenH * 0.1;
+        break;
+    }
 
     const targetX = targetRect.left + (targetRect.width > 60 ? targetRect.width - 24 : targetRect.width / 2);
     const targetY = targetRect.top - 8;
 
-    // Organic curving bezier flight path from garden to message
-    const midX = (startX + targetX) / 2 + (Math.random() - 0.5) * 160;
-    const midY = (startY + targetY) / 2 + (Math.random() - 0.5) * 100;
+    // Organic curving bezier flight path across the sky with natural swoops
+    const midX = (startX + targetX) / 2 + (Math.random() - 0.5) * 260;
+    const midY = (startY + targetY) / 2 + (Math.random() - 0.5) * 180;
 
-    const controlX1 = startX + (midX - startX) * 0.6 + (Math.random() - 0.5) * 80;
-    const controlY1 = startY - 120;
-    const controlX2 = midX + (targetX - midX) * 0.6 + (Math.random() - 0.5) * 80;
-    const controlY2 = targetY + 60;
+    const controlX1 = startX + (midX - startX) * 0.55 + (Math.random() - 0.5) * 140;
+    const controlY1 = startY + (midY - startY) * 0.25 - (Math.random() * 120 + 50);
+    const controlX2 = midX + (targetX - midX) * 0.65 + (Math.random() - 0.5) * 120;
+    const controlY2 = targetY + (Math.random() * 90 + 35);
 
     const flightId = 'bf_' + Math.random().toString(36).substring(2, 9);
     const palette = BUTTERFLY_PALETTES[Math.floor(Math.random() * BUTTERFLY_PALETTES.length)];
@@ -61,17 +140,17 @@ export const GardenButterflyOverlay = forwardRef<GardenButterflyRef>((_, ref) =>
       controlY1,
       controlX2,
       controlY2,
-      colorScheme: palette.glow,
+      palette,
       onLanded,
     };
 
     setFlights((prev) => [...prev, instance]);
 
-    // Automatically remove after flight completes (~1400ms)
+    // Slower, graceful flight duration (~2700ms flight + gentle settlement)
     setTimeout(() => {
       onLanded?.();
       setFlights((prev) => prev.filter((f) => f.id !== flightId));
-    }, 1450);
+    }, 2850);
   }, []);
 
   useImperativeHandle(ref, () => ({
@@ -86,7 +165,7 @@ export const GardenButterflyOverlay = forwardRef<GardenButterflyRef>((_, ref) =>
       aria-hidden="true"
     >
       {flights.map((flight) => (
-        <AnimatedFlyingButterfly key={flight.id} flight={flight} />
+        <AnimatedRealisticButterfly key={flight.id} flight={flight} />
       ))}
     </div>
   );
@@ -94,18 +173,23 @@ export const GardenButterflyOverlay = forwardRef<GardenButterflyRef>((_, ref) =>
 
 GardenButterflyOverlay.displayName = 'GardenButterflyOverlay';
 
-// Individual flying butterfly with flight curve and stardust trail
-function AnimatedFlyingButterfly({ flight }: { flight: ButterflyFlightInstance }) {
-  const [coords, setCoords] = useState({ x: flight.startX, y: flight.startY, angle: -45, scale: 0.6 });
-  const [trail, setTrail] = useState<Array<{ x: number; y: number; id: number }>>([]);
+// Realistic Butterfly Sprite with 3D wing-folding and organic biological flutter
+function AnimatedRealisticButterfly({ flight }: { flight: ButterflyFlightInstance }) {
+  const [coords, setCoords] = useState({
+    x: flight.startX,
+    y: flight.startY,
+    angle: -45,
+    scale: 0.22,
+    opacity: 0,
+  });
+  const [trail, setTrail] = useState<Array<{ x: number; y: number; id: number; color: string }>>([]);
 
   useEffect(() => {
     const startTime = performance.now();
-    const duration = 1350; // ms flight duration
+    const duration = 2700; // Slower, poetic flight (2.7 seconds)
 
     let frameId: number;
 
-    // Cubic Bezier curve calculation
     const getBezierPoint = (t: number) => {
       const u = 1 - t;
       const tt = t * t;
@@ -121,27 +205,58 @@ function AnimatedFlyingButterfly({ flight }: { flight: ButterflyFlightInstance }
     const animate = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / duration);
-      // Ease out cubic
-      const eased = 1 - Math.pow(1 - progress, 2.5);
 
-      const p0 = getBezierPoint(Math.max(0, eased - 0.02));
+      // Natural ease: smooth take-off, graceful mid-flight, gentle deceleration landing
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2.2) / 2;
+
+      const p0 = getBezierPoint(Math.max(0, eased - 0.015));
       const p1 = getBezierPoint(eased);
 
-      // Calculate flight heading angle
+      // Natural wing-beat flutter bobbing (real butterflies bob vertically as wings beat)
+      const flutterFreq = 16;
+      const flapWave = Math.sin(progress * Math.PI * flutterFreq);
+      const flutterAmp = (1 - progress * 0.75) * 11;
+      const bobY = flapWave * flutterAmp;
+
+      // Calculate tangent flight heading
       const dx = p1.x - p0.x;
       const dy = p1.y - p0.y;
-      const angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+      const rawAngle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
 
-      // Scale up as it flies from background garden into view, then settle
-      const scale = progress < 0.2 ? 0.6 + progress * 2 : progress > 0.85 ? 1.0 - (progress - 0.85) * 0.4 : 1.0;
+      // Add gentle body bank into turns
+      const bankAngle = flapWave * 4;
+      const angle = rawAngle + bankAngle;
 
-      setCoords({ x: p1.x, y: p1.y, angle, scale });
+      // Emerge from deep background: start scale 0.22 and fade in,
+      // expand into a majestic butterfly (~1.28 scale), then gently settle on the message (~1.02)
+      const scale = progress < 0.22
+        ? 0.22 + (progress / 0.22) * 1.06
+        : progress > 0.82
+          ? 1.28 - ((progress - 0.82) / 0.18) * 0.26
+          : 1.28;
 
-      // Add sparkling stardust trail
-      if (Math.random() > 0.4 && progress < 0.9) {
+      const opacity = progress < 0.12 ? progress / 0.12 : 1;
+
+      setCoords({
+        x: p1.x,
+        y: p1.y + bobY,
+        angle,
+        scale,
+        opacity,
+      });
+
+      // Shed glowing stardust motes behind fluttering wings
+      if (Math.random() > 0.45 && progress < 0.94) {
         setTrail((prev) => [
-          ...prev.slice(-8),
-          { x: p1.x + (Math.random() - 0.5) * 8, y: p1.y + (Math.random() - 0.5) * 8, id: now },
+          ...prev.slice(-14),
+          {
+            x: p1.x + (Math.random() - 0.5) * 16,
+            y: p1.y + bobY + (Math.random() - 0.5) * 16,
+            id: now,
+            color: flight.palette.accent,
+          },
         ]);
       }
 
@@ -154,81 +269,191 @@ function AnimatedFlyingButterfly({ flight }: { flight: ButterflyFlightInstance }
     return () => cancelAnimationFrame(frameId);
   }, [flight]);
 
+  const p = flight.palette;
+
   return (
     <>
-      {/* Stardust particles trailing behind */}
+      {/* Luminous stardust trail left in the night air */}
       {trail.map((mote) => (
         <span
           key={mote.id}
-          className="absolute w-1.5 h-1.5 rounded-full bg-emerald-300 pointer-events-none animate-ping"
+          className="absolute w-2 h-2 rounded-full pointer-events-none animate-ping"
           style={{
             left: `${mote.x}px`,
             top: `${mote.y}px`,
-            boxShadow: `0 0 8px ${flight.colorScheme}`,
-            opacity: 0.6,
+            backgroundColor: mote.color,
+            boxShadow: `0 0 10px ${p.glow}`,
+            opacity: 0.75,
           }}
         />
       ))}
 
-      {/* Butterfly Sprite */}
+      {/* Realistic 3D Butterfly Container */}
       <div
         className="absolute pointer-events-none transition-transform will-change-transform"
         style={{
           left: `${coords.x}px`,
           top: `${coords.y}px`,
           transform: `translate(-50%, -50%) rotate(${coords.angle}deg) scale(${coords.scale})`,
-          filter: `drop-shadow(0 0 12px ${flight.colorScheme})`,
+          filter: `drop-shadow(0 0 16px ${p.glow}) drop-shadow(0 0 6px ${p.primary})`,
+          opacity: coords.opacity,
+          perspective: '800px',
         }}
       >
-        <div className="butterfly-flight-wings relative flex items-center justify-center">
-          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" className="overflow-visible">
-            {/* Left Wing */}
-            <path
-              d="M12 12 C10 6, 2 4, 3 10 C3.5 13, 8 13.5, 12 12 Z"
-              fill="url(#bfGradientLeft)"
-              className="origin-right animate-wingFlapLeft"
-            />
-            <path
-              d="M12 12 C9 15, 4 17, 5 20 C6 21.5, 10 18, 12 12 Z"
-              fill="url(#bfGradientLowerLeft)"
-              className="origin-right animate-wingFlapLeft"
-            />
-
-            {/* Right Wing */}
-            <path
-              d="M12 12 C14 6, 22 4, 21 10 C20.5 13, 16 13.5, 12 12 Z"
-              fill="url(#bfGradientRight)"
-              className="origin-left animate-wingFlapRight"
-            />
-            <path
-              d="M12 12 C15 15, 20 17, 19 20 C18 21.5, 14 18, 12 12 Z"
-              fill="url(#bfGradientLowerRight)"
-              className="origin-left animate-wingFlapRight"
-            />
-
-            {/* Body & Antennae */}
-            <ellipse cx="12" cy="12" rx="1" ry="4.5" fill="#f0fdf4" />
-            <path d="M12 8 Q10 4 9 3" stroke="#f0fdf4" strokeWidth="0.8" strokeLinecap="round" />
-            <path d="M12 8 Q14 4 15 3" stroke="#f0fdf4" strokeWidth="0.8" strokeLinecap="round" />
-
+        <div
+          className="relative flex items-center justify-center"
+          style={{
+            transformStyle: 'preserve-3d',
+          }}
+        >
+          <svg
+            width="64"
+            height="56"
+            viewBox="-52 -45 104 90"
+            fill="none"
+            className="overflow-visible select-none"
+          >
             <defs>
-              <linearGradient id="bfGradientLeft" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#6ee7b7" />
-                <stop offset="100%" stopColor="#059669" />
+              {/* Forewing Gradient - Rich velvet sheen */}
+              <linearGradient id={`gradFW_${flight.id}`} x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={p.accent} />
+                <stop offset="45%" stopColor={p.primary} />
+                <stop offset="90%" stopColor={p.secondary} />
+                <stop offset="100%" stopColor={p.darkBorder} />
               </linearGradient>
-              <linearGradient id="bfGradientLowerLeft" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#34d399" />
-                <stop offset="100%" stopColor="#047857" />
+
+              {/* Hindwing Gradient */}
+              <linearGradient id={`gradHW_${flight.id}`} x1="0" y1="0" x2="0.8" y2="1">
+                <stop offset="0%" stopColor={p.accent} stopOpacity="0.95" />
+                <stop offset="50%" stopColor={p.primary} />
+                <stop offset="85%" stopColor={p.secondary} />
+                <stop offset="100%" stopColor={p.darkBorder} />
               </linearGradient>
-              <linearGradient id="bfGradientRight" x1="1" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#6ee7b7" />
-                <stop offset="100%" stopColor="#059669" />
-              </linearGradient>
-              <linearGradient id="bfGradientLowerRight" x1="1" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#34d399" />
-                <stop offset="100%" stopColor="#047857" />
+
+              {/* Body Gradient */}
+              <linearGradient id={`gradBody_${flight.id}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#1e293b" />
+                <stop offset="35%" stopColor="#0f172a" />
+                <stop offset="70%" stopColor="#020617" />
+                <stop offset="100%" stopColor="#000000" />
               </linearGradient>
             </defs>
+
+            {/* LEFT WINGS GROUP - Realistic 3D Flap */}
+            <g className="animate-realWingFlapLeft">
+              {/* Left Forewing (Upper Wing) */}
+              <path
+                d="M 0 -6 C -10 -24, -30 -35, -46 -27 C -50 -17, -46 -3, -33 5 C -20 8, -6 2, 0 -2 Z"
+                fill={`url(#gradFW_${flight.id})`}
+                stroke={p.darkBorder}
+                strokeWidth="2.2"
+                strokeLinejoin="round"
+              />
+              {/* Left Hindwing (Lower Wing with delicate swallowtail curve) */}
+              <path
+                d="M 0 -2 C -14 3, -34 10, -30 24 C -26 34, -13 36, -3 24 C -1 18, -0.5 8, 0 4 Z"
+                fill={`url(#gradHW_${flight.id})`}
+                stroke={p.darkBorder}
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+
+              {/* Left Wing Delicate Vein Pattern */}
+              <path d="M 0 -5 Q -22 -15 -42 -22" stroke={p.darkBorder} strokeWidth="1.2" strokeOpacity="0.75" fill="none" />
+              <path d="M -18 -12 Q -30 -6 -40 -3" stroke={p.darkBorder} strokeWidth="1" strokeOpacity="0.7" fill="none" />
+              <path d="M -14 -6 Q -24 3 -30 5" stroke={p.darkBorder} strokeWidth="0.9" strokeOpacity="0.7" fill="none" />
+              <path d="M 0 0 Q -16 12 -25 24" stroke={p.darkBorder} strokeWidth="1.1" strokeOpacity="0.75" fill="none" />
+              <path d="M -12 10 Q -18 20 -15 28" stroke={p.darkBorder} strokeWidth="0.9" strokeOpacity="0.7" fill="none" />
+
+              {/* Left Wing Starlight Marginal Dots */}
+              <circle cx="-44" cy="-24" r="1.2" fill="#ffffff" opacity="0.9" />
+              <circle cx="-48" cy="-17" r="1.2" fill="#ffffff" opacity="0.9" />
+              <circle cx="-47" cy="-9" r="1.1" fill="#ffffff" opacity="0.85" />
+              <circle cx="-42" cy="-2" r="1.1" fill="#ffffff" opacity="0.85" />
+              <circle cx="-28" cy="24" r="1.1" fill="#ffffff" opacity="0.9" />
+              <circle cx="-22" cy="30" r="1.1" fill="#ffffff" opacity="0.9" />
+              <circle cx="-13" cy="32" r="1" fill="#ffffff" opacity="0.85" />
+            </g>
+
+            {/* RIGHT WINGS GROUP - Realistic 3D Flap */}
+            <g className="animate-realWingFlapRight">
+              {/* Right Forewing (Upper Wing) */}
+              <path
+                d="M 0 -6 C 10 -24, 30 -35, 46 -27 C 50 -17, 46 -3, 33 5 C 20 8, 6 2, 0 -2 Z"
+                fill={`url(#gradFW_${flight.id})`}
+                stroke={p.darkBorder}
+                strokeWidth="2.2"
+                strokeLinejoin="round"
+              />
+              {/* Right Hindwing (Lower Wing) */}
+              <path
+                d="M 0 -2 C 14 3, 34 10, 30 24 C 26 34, 13 36, 3 24 C 1 18, 0.5 8, 0 4 Z"
+                fill={`url(#gradHW_${flight.id})`}
+                stroke={p.darkBorder}
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+
+              {/* Right Wing Delicate Vein Pattern */}
+              <path d="M 0 -5 Q 22 -15 42 -22" stroke={p.darkBorder} strokeWidth="1.2" strokeOpacity="0.75" fill="none" />
+              <path d="M 18 -12 Q 30 -6 40 -3" stroke={p.darkBorder} strokeWidth="1" strokeOpacity="0.7" fill="none" />
+              <path d="M 14 -6 Q 24 3 30 5" stroke={p.darkBorder} strokeWidth="0.9" strokeOpacity="0.7" fill="none" />
+              <path d="M 0 0 Q 16 12 25 24" stroke={p.darkBorder} strokeWidth="1.1" strokeOpacity="0.75" fill="none" />
+              <path d="M 12 10 Q 18 20 15 28" stroke={p.darkBorder} strokeWidth="0.9" strokeOpacity="0.7" fill="none" />
+
+              {/* Right Wing Starlight Marginal Dots */}
+              <circle cx="44" cy="-24" r="1.2" fill="#ffffff" opacity="0.9" />
+              <circle cx="48" cy="-17" r="1.2" fill="#ffffff" opacity="0.9" />
+              <circle cx="47" cy="-9" r="1.1" fill="#ffffff" opacity="0.85" />
+              <circle cx="42" cy="-2" r="1.1" fill="#ffffff" opacity="0.85" />
+              <circle cx="28" cy="24" r="1.1" fill="#ffffff" opacity="0.9" />
+              <circle cx="22" cy="30" r="1.1" fill="#ffffff" opacity="0.9" />
+              <circle cx="13" cy="32" r="1" fill="#ffffff" opacity="0.85" />
+            </g>
+
+            {/* REALISTIC BUTTERFLY BODY & ANTENNAE */}
+            <g id="butterflyBody">
+              {/* Segmented Abdomen */}
+              <path
+                d="M -2.2 -4 C -2.5 5, -2 15, 0 22 C 2 15, 2.5 5, 2.2 -4 Z"
+                fill={`url(#gradBody_${flight.id})`}
+                stroke="#0f172a"
+                strokeWidth="0.5"
+              />
+              {/* Abdominal segments highlights */}
+              <line x1="-1.8" y1="2" x2="1.8" y2="2" stroke="#475569" strokeWidth="0.6" strokeLinecap="round" />
+              <line x1="-1.6" y1="7" x2="1.6" y2="7" stroke="#475569" strokeWidth="0.6" strokeLinecap="round" />
+              <line x1="-1.3" y1="12" x2="1.3" y2="12" stroke="#475569" strokeWidth="0.6" strokeLinecap="round" />
+              <line x1="-0.9" y1="17" x2="0.9" y2="17" stroke="#475569" strokeWidth="0.6" strokeLinecap="round" />
+
+              {/* Thorax */}
+              <ellipse cx="0" cy="-6" rx="3.2" ry="5.5" fill="#0f172a" />
+              <ellipse cx="0" cy="-6" rx="2.4" ry="4.2" fill="#1e293b" />
+
+              {/* Head with compound eyes */}
+              <circle cx="0" cy="-13" r="2.8" fill="#0f172a" />
+              <circle cx="-1.8" cy="-13.5" r="1" fill="#020617" />
+              <circle cx="1.8" cy="-13.5" r="1" fill="#020617" />
+
+              {/* Antennae with delicate curved tips */}
+              <path
+                d="M -0.8 -14.5 Q -6 -24 -13 -27"
+                stroke="#cbd5e1"
+                strokeWidth="0.9"
+                strokeLinecap="round"
+                fill="none"
+              />
+              <circle cx="-13.5" cy="-27.5" r="1.3" fill="#f8fafc" />
+
+              <path
+                d="M 0.8 -14.5 Q 6 -24 13 -27"
+                stroke="#cbd5e1"
+                strokeWidth="0.9"
+                strokeLinecap="round"
+                fill="none"
+              />
+              <circle cx="13.5" cy="-27.5" r="1.3" fill="#f8fafc" />
+            </g>
           </svg>
         </div>
       </div>

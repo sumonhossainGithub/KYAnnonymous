@@ -497,7 +497,9 @@ class CommunityController extends Controller
                 \Illuminate\Support\Facades\DB::table('chat_message_reactions')
                     ->where('id', $existing->id)
                     ->delete();
-                $message->decrement('butterfly_count');
+                if ($message->butterfly_count > 0) {
+                    $message->decrement('butterfly_count');
+                }
             } else {
                 \Illuminate\Support\Facades\DB::table('chat_message_reactions')->insert([
                     'chat_message_id' => $message->id,

@@ -85,13 +85,35 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   };
 
   const butterflyRef = useRef<GardenButterflyRef>(null);
+  const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
 
   const handleButterflyReact = async (msg: ChatMessageItem, targetEl: HTMLElement) => {
-    if (!msg.has_reacted_butterfly) {
-      const rect = targetEl.getBoundingClientRect();
-      butterflyRef.current?.flyTo(rect);
-    }
+    const rect = targetEl.getBoundingClientRect();
+    butterflyRef.current?.flyTo(rect);
     await live.reactButterfly(msg.public_id);
+  };
+
+  const handleMessageTapOrClick = (msg: ChatMessageItem, targetEl: HTMLElement) => {
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapRef.current.time;
+
+    if (lastTapRef.current.id === msg.public_id && timeSinceLastTap < 380) {
+      // Double tap detected!
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
+      lastTapRef.current = { id: '', time: 0 };
+      void handleButterflyReact(msg, targetEl);
+    } else {
+      // First tap: set timer to toggle timestamp if not double tapped
+      lastTapRef.current = { id: msg.public_id, time: now };
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+      tapTimeoutRef.current = setTimeout(() => {
+        setTouchedMessageId(prev => prev === msg.public_id ? null : msg.public_id);
+      }, 260);
+    }
   };
 
 
@@ -221,8 +243,13 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                     <div className={`flex items-end gap-2 ${own ? 'flex-row-reverse' : 'flex-row'}`}>
                       <div
                         className={`message-bubble relative font-sans cursor-pointer transition select-none ${touchedMessageId === message.public_id ? 'show-time' : ''}`}
-                        onClick={() => setTouchedMessageId(touchedMessageId === message.public_id ? null : message.public_id)}
-                        title="Click or tap to view timestamp"
+                        onClick={(e) => handleMessageTapOrClick(message, e.currentTarget)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+                          void handleButterflyReact(message, e.currentTarget);
+                        }}
+                        title="Double-tap to magic butterfly · Tap to view timestamp"
                       >
                         {/* Perched Garden Butterfly sitting on the message */}
                         {(message.butterfly_count ?? 0) > 0 && (
@@ -230,9 +257,9 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                             className="perched-butterfly absolute -top-2.5 -right-2 px-1.5 py-0.5 rounded-full bg-emerald-950/95 border border-emerald-400/50 text-[10px] font-mono text-emerald-200 shadow-[0_0_12px_rgba(52,211,153,0.5)] flex items-center gap-1 z-10"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleButterflyReact(message, e.currentTarget);
+                              void handleButterflyReact(message, e.currentTarget);
                             }}
-                            title="A garden butterfly is resting here! Click to react"
+                            title="A garden butterfly is resting here! Double-tap message to magic another"
                           >
                             <span className="text-xs">🦋</span>
                             <span>{message.butterfly_count}</span>
@@ -245,20 +272,6 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
 
                       {/* Action buttons on the side of the message */}
                       <div className="flex items-center gap-1">
-                        {/* Butterfly React Option */}
-                        <button
-                          type="button"
-                          onClick={(e) => handleButterflyReact(message, e.currentTarget)}
-                          className={`butterfly-react-btn inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono transition flex-shrink-0 ${
-                            message.has_reacted_butterfly
-                              ? 'bg-emerald-950/90 border border-emerald-400 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.3)] has-reacted'
-                              : 'bg-slate-900/60 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/40 text-slate-400 hover:text-emerald-300'
-                          }`}
-                          title={message.has_reacted_butterfly ? 'Butterfly has visited (Click to recall)' : 'Send a garden butterfly to sit on this message'}
-                        >
-                          <span className="text-xs">🦋</span>
-                          {(message.butterfly_count ?? 0) > 0 && <span>{message.butterfly_count}</span>}
-                        </button>
 
                         {/* Reply button on the right side of the message */}
                         <button
@@ -413,6 +426,13 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                 </article>
               );
             })}
+
+            {messages.length > 0 && (
+              <div className="flex items-center justify-center gap-1.5 py-2 my-1 text-[11px] font-mono text-emerald-400/70 select-none animate-pulse">
+                <span>✨</span>
+                <span>double tap to magic 🦋</span>
+              </div>
+            )}
           </div>
 
           {unread && (
