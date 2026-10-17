@@ -308,6 +308,10 @@ class CommunityController extends Controller
                         'is_ghost' => (bool) ($sub->is_ghost ?? false),
                         'is_guest' => (bool) ($sub->is_guest ?? false),
                         'is_own' => $isSubOwn,
+                        'file_url' => $sub->file_url,
+                        'file_name' => $sub->file_name,
+                        'file_type' => $sub->file_type,
+                        'file_size' => $sub->file_size ? (int) $sub->file_size : null,
                         'sender' => $this->formatSender($sub, $adminStealth),
                     ];
                 })->values();
@@ -319,6 +323,10 @@ class CommunityController extends Controller
                     'is_ghost' => (bool) ($m->is_ghost ?? false),
                     'is_guest' => (bool) ($m->is_guest ?? false),
                     'is_own' => $isOwn,
+                    'file_url' => $m->file_url,
+                    'file_name' => $m->file_name,
+                    'file_type' => $m->file_type,
+                    'file_size' => $m->file_size ? (int) $m->file_size : null,
                     'sender' => $sender,
                     'sub_chats' => $subChats,
                     'sub_chats_count' => $subChats->count(),
@@ -370,16 +378,23 @@ class CommunityController extends Controller
             RateLimiter::hit($limiterKey, 60);
         }
 
+        $hasFile = $request->hasFile('file');
+        if ($hasFile && !$user) {
+            throw ValidationException::withMessages(['file' => 'Only registered users can attach files and images.']);
+        }
+
         $request->validate([
-            'message' => ['required', 'string', 'max:'.SiteSettings::get('message_max_length')],
+            'message' => ['nullable', 'string', 'max:'.SiteSettings::get('message_max_length')],
+            'file' => ['nullable', 'file', 'max:10240'], // 10 MB limit (10240 KB)
             'is_ghost' => ['nullable', 'boolean'],
             'guest_name' => ['nullable', 'string', 'max:30'],
             'parent_public_id' => ['nullable', 'string', 'max:50'],
         ]);
-        $request->merge(['message' => trim(strip_tags($request->input('message')))]);
-        $request->validate([
-            'message' => ['required', 'string', 'min:1', 'max:'.SiteSettings::get('message_max_length')],
-        ]);
+
+        $messageText = trim(strip_tags((string) $request->input('message', '')));
+        if (!$hasFile && $messageText === '') {
+            throw ValidationException::withMessages(['message' => 'Please enter a message or attach a file.']);
+        }
 
         $isGuest = $user === null;
         $isGhost = $user ? $request->boolean('is_ghost', false) : false;
@@ -396,6 +411,33 @@ class CommunityController extends Controller
             }
         }
 
+        $fileUrl = null;
+        $fileName = null;
+        $fileType = null;
+        $fileSize = null;
+
+        if ($hasFile && $user) {
+            $uploadedFile = $request->file('file');
+            $origName = $uploadedFile->getClientOriginalName();
+            $mimeType = $uploadedFile->getMimeType() ?: 'application/octet-stream';
+            $fileSize = $uploadedFile->getSize();
+            $extension = strtolower($uploadedFile->getClientOriginalExtension() ?: 'bin');
+
+            $isImage = str_starts_with($mimeType, 'image/') || in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif']);
+            $fileType = $isImage ? 'image' : 'file';
+
+            $uploadDir = public_path('uploads/chat');
+            if (!\Illuminate\Support\Facades\File::isDirectory($uploadDir)) {
+                \Illuminate\Support\Facades\File::makeDirectory($uploadDir, 0755, true);
+            }
+
+            $savedName = 'chat_' . time() . '_' . Str::random(10) . '.' . $extension;
+            $uploadedFile->move($uploadDir, $savedName);
+
+            $fileUrl = '/uploads/chat/' . $savedName;
+            $fileName = $origName;
+        }
+
         $parentId = null;
         if ($parentPubId = $request->input('parent_public_id')) {
             $parentMsg = ChatMessage::where('public_id', $parentPubId)
@@ -409,11 +451,15 @@ class CommunityController extends Controller
             'chat_room_id' => $room->id,
             'parent_id' => $parentId,
             'user_id' => $user ? $user->id : null,
-            'message' => trim(strip_tags($request->message)),
+            'message' => $messageText,
             'is_ghost' => $isGhost,
             'is_guest' => $isGuest,
             'is_ephemeral' => false,
             'alias_name' => $aliasName,
+            'file_url' => $fileUrl,
+            'file_name' => $fileName,
+            'file_type' => $fileType,
+            'file_size' => $fileSize,
         ]);
 
         $request->session()->push('my_message_ids', $chatMsg->public_id);
@@ -528,7 +574,23 @@ class CommunityController extends Controller
         $room = ChatRoom::where('slug', $slug)->firstOrFail();
         $message = ChatMessage::where('chat_room_id', $room->id)->where('public_id', $publicId)->firstOrFail();
         \Illuminate\Support\Facades\DB::transaction(function () use ($message, $request) {
+            $subMessages = ChatMessage::where('parent_id', $message->id)->get();
+            foreach ($subMessages as $sub) {
+                if ($sub->file_url && \Illuminate\Support\Str::startsWith($sub->file_url, '/uploads/chat/')) {
+                    $path = public_path(ltrim($sub->file_url, '/'));
+                    if (\Illuminate\Support\Facades\File::exists($path)) {
+                        \Illuminate\Support\Facades\File::delete($path);
+                    }
+                }
+            }
             ChatMessage::where('parent_id', $message->id)->delete();
+
+            if ($message->file_url && \Illuminate\Support\Str::startsWith($message->file_url, '/uploads/chat/')) {
+                $path = public_path(ltrim($message->file_url, '/'));
+                if (\Illuminate\Support\Facades\File::exists($path)) {
+                    \Illuminate\Support\Facades\File::delete($path);
+                }
+            }
             $message->delete();
             \App\Models\AdminAuditLog::create(['admin_id' => $request->user()->id, 'action' => 'CHAT_MESSAGE_REMOVED', 'target_type' => 'chat_message', 'target_public_id' => $message->public_id, 'created_at' => now()]);
         });

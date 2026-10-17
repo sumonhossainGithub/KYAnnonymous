@@ -18,6 +18,10 @@ class ChatMessage extends Model
         'is_ephemeral',
         'alias_name',
         'butterfly_count',
+        'file_url',
+        'file_name',
+        'file_type',
+        'file_size',
     ];
 
     protected $attributes = [
@@ -29,6 +33,7 @@ class ChatMessage extends Model
         'is_guest' => 'boolean',
         'is_ephemeral' => 'boolean',
         'butterfly_count' => 'integer',
+        'file_size' => 'integer',
     ];
 
     protected $hidden = ['id', 'chat_room_id', 'user_id', 'parent_id'];

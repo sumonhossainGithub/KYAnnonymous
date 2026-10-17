@@ -73,7 +73,7 @@ export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], si
 
   useEffect(() => () => { activeWrite.current?.abort(); }, [slug]);
 
-  const write = async (url: string, method: string, data?: object) => {
+  const write = async (url: string, method: string, data?: object | FormData) => {
     if (busy.current) return false;
     busy.current = true;
     setSending(true);
@@ -82,12 +82,25 @@ export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], si
     activeRead.current = null;
     const controller = new AbortController();
     activeWrite.current = controller;
-    const timeout = window.setTimeout(() => controller.abort(), 20000);
+    const timeout = window.setTimeout(() => controller.abort(), 35000);
     try {
       const token = document.cookie.split('; ').find(cookie => cookie.startsWith('XSRF-TOKEN='))?.slice('XSRF-TOKEN='.length);
-      const response = await fetch(url, { method, credentials: 'same-origin', signal: controller.signal,
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-XSRF-TOKEN': token ? decodeURIComponent(token) : '' },
-        body: data ? JSON.stringify(data) : undefined });
+      const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+      const headers: Record<string, string> = {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-XSRF-TOKEN': token ? decodeURIComponent(token) : '',
+      };
+      if (!isFormData) {
+        headers['Content-Type'] = 'application/json';
+      }
+      const response = await fetch(url, {
+        method,
+        credentials: 'same-origin',
+        signal: controller.signal,
+        headers,
+        body: isFormData ? data : (data ? JSON.stringify(data) : undefined),
+      });
       if (response.status === 419) throw new Error('Your session expired. Refresh this page before sending again. Your draft is still here.');
       const value = await response.json();
       if (!response.ok) throw new Error(Object.values(value.errors || {}).flat().join(' ') || value.message || 'Unable to send. Please try again.');
@@ -127,7 +140,7 @@ export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], si
   }, [slug]);
 
   return { ...snapshot, typing: snapshot.typing || [], connected, sending, error, refresh, sendTyping,
-    send: (data: object) => write(`/chat/${encodeURIComponent(slug)}/message`, 'POST', data),
+    send: (data: object | FormData) => write(`/chat/${encodeURIComponent(slug)}/message`, 'POST', data),
     reactButterfly: (publicId: string) => write(`/chat/${encodeURIComponent(slug)}/messages/${publicId}/butterfly`, 'POST'),
     remove: (publicId: string) => write(`/admin/chat/${encodeURIComponent(slug)}/messages/${publicId}`, 'DELETE'),
   };

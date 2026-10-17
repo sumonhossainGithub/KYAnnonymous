@@ -114,6 +114,10 @@ export interface ChatSubMessage {
   is_ghost?: boolean;
   is_guest?: boolean;
   is_own?: boolean;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
+  file_size?: number | null;
   sender: ChatSender;
 }
 
@@ -124,10 +128,15 @@ export interface ChatMessageItem {
   is_ghost?: boolean;
   is_guest?: boolean;
   is_own?: boolean;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
+  file_size?: number | null;
   sender: ChatSender;
   sub_chats?: ChatSubMessage[];
   sub_chats_count?: number;
   butterfly_count?: number;
   has_reacted_butterfly?: boolean;
 }
+
 

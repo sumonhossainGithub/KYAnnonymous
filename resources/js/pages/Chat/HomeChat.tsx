@@ -19,6 +19,8 @@ import {
   MessageCircle,
   Smile,
   Trash2,
+  FileText,
+  Download,
 } from 'lucide-react';
 import EmojiPicker from '@/components/EmojiPicker';
 import GardenButterflyOverlay, { type GardenButterflyRef } from '@/components/GardenButterflyOverlay';
@@ -65,6 +67,40 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedPreviewUrl, setAttachedPreviewUrl] = useState<string | null>(null);
+
+  const clearAttachment = () => {
+    setAttachedFile(null);
+    if (attachedPreviewUrl) {
+      URL.revokeObjectURL(attachedPreviewUrl);
+      setAttachedPreviewUrl(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB limit
+    if (file.size > MAX_SIZE) {
+      alert('File size exceeds the 10 MB limit. Please select a smaller file.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setAttachedFile(file);
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setAttachedPreviewUrl(url);
+    } else {
+      setAttachedPreviewUrl(null);
+    }
+  };
 
   const insertEmoji = (emoji: string) => {
     const input = messageInputRef.current;
@@ -137,10 +173,30 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
 
   const send = async (event: FormEvent) => {
     event.preventDefault();
-    if (!form.data.message.trim() || !live.policy.can_send || live.sending) return;
+    if ((!form.data.message.trim() && !attachedFile) || !live.policy.can_send || live.sending) return;
     nearBottom.current = true;
-    if (await live.send({ ...form.data, is_ghost: live.policy.anonymous_enabled && form.data.is_ghost })) {
+
+    let payload: object | FormData;
+    if (attachedFile) {
+      const formData = new FormData();
+      if (form.data.message.trim()) {
+        formData.append('message', form.data.message.trim());
+      }
+      formData.append('file', attachedFile);
+      if (live.policy.anonymous_enabled && form.data.is_ghost) {
+        formData.append('is_ghost', '1');
+      }
+      if (form.data.guest_name?.trim()) {
+        formData.append('guest_name', form.data.guest_name.trim());
+      }
+      payload = formData;
+    } else {
+      payload = { ...form.data, is_ghost: live.policy.anonymous_enabled && form.data.is_ghost };
+    }
+
+    if (await live.send(payload)) {
       form.reset('message');
+      clearAttachment();
       setUnread(false);
     }
   };
@@ -268,7 +324,63 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                             </span>
                           )}
 
-                          <p>{message.message}</p>
+                          {/* Message Attachment (Image or File) */}
+                          {message.file_url && (
+                            (() => {
+                              const isImg = message.file_type === 'image' || (message.file_url && /\.(jpe?g|png|gif|webp|svg|avif|bmp)$/i.test(message.file_url));
+                              if (isImg) {
+                                return (
+                                  <div className="mb-2 overflow-hidden rounded-xl border border-emerald-500/25 bg-black/40 max-w-[280px] sm:max-w-xs shadow-md">
+                                    <a
+                                      href={message.file_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="block overflow-hidden group/img"
+                                      title="Click to view full image"
+                                    >
+                                      <img
+                                        src={message.file_url}
+                                        alt={message.file_name || 'Attached image'}
+                                        className="max-h-60 w-auto max-w-full object-contain rounded-xl group-hover/img:scale-[1.02] transition-transform duration-200"
+                                        loading="lazy"
+                                      />
+                                    </a>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <a
+                                  href={message.file_url}
+                                  download={message.file_name || 'download'}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="mb-2 flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-emerald-500/30 text-emerald-300 hover:text-white transition group/file shadow-md"
+                                  title="Click to download file"
+                                >
+                                  <div className="p-2 rounded-lg bg-emerald-950 border border-emerald-500/40 text-emerald-400 group-hover/file:text-emerald-200">
+                                    <FileText size={18} />
+                                  </div>
+                                  <div className="min-w-0 flex-1 text-left">
+                                    <p className="text-xs font-semibold truncate text-slate-200 group-hover/file:text-white max-w-[170px] sm:max-w-[220px]">
+                                      {message.file_name || 'Attached File'}
+                                    </p>
+                                    {message.file_size && (
+                                      <span className="text-[10px] font-mono text-emerald-400/80">
+                                        {message.file_size >= 1048576
+                                          ? `${(message.file_size / 1048576).toFixed(2)} MB`
+                                          : `${Math.round(message.file_size / 1024)} KB`}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <Download size={16} className="text-slate-400 group-hover/file:text-emerald-300 flex-shrink-0" />
+                                </a>
+                              );
+                            })()
+                          )}
+
+                          {message.message ? <p className="whitespace-pre-wrap break-words">{message.message}</p> : null}
                           <time className="font-mono text-[10px]">{message.created_at}</time>
                         </div>
 
@@ -361,7 +473,35 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                                     </span>
                                     <span className="text-slate-500 opacity-60 group-hover:opacity-100 transition">{sub.created_at}</span>
                                   </div>
-                                  <p className="text-slate-200 font-sans pl-5">{sub.message}</p>
+                                  {sub.file_url && (
+                                    (() => {
+                                      const isSubImg = sub.file_type === 'image' || (sub.file_url && /\.(jpe?g|png|gif|webp|svg|avif|bmp)$/i.test(sub.file_url));
+                                      if (isSubImg) {
+                                        return (
+                                          <div className="my-1.5 ml-5 overflow-hidden rounded-lg border border-emerald-500/25 max-w-[220px]">
+                                            <a href={sub.file_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                              <img src={sub.file_url} alt={sub.file_name || 'Attached image'} className="max-h-40 w-auto rounded-lg object-contain" loading="lazy" />
+                                            </a>
+                                          </div>
+                                        );
+                                      }
+                                      return (
+                                        <a
+                                          href={sub.file_url}
+                                          download={sub.file_name || 'download'}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="my-1.5 ml-5 inline-flex items-center gap-2 p-1.5 rounded-lg bg-slate-950/80 border border-slate-700 text-xs text-emerald-300 hover:text-white"
+                                        >
+                                          <FileText size={14} className="text-emerald-400 flex-shrink-0" />
+                                          <span className="truncate max-w-[140px] text-[11px]">{sub.file_name || 'File'}</span>
+                                          <Download size={12} className="text-slate-400 flex-shrink-0" />
+                                        </a>
+                                      );
+                                    })()
+                                  )}
+                                  {sub.message ? <p className="text-slate-200 font-sans pl-5 whitespace-pre-wrap break-words">{sub.message}</p> : null}
                                   {auth.user?.role === 'SUPER_ADMIN' && (
                                     <button
                                       type="button"
@@ -500,17 +640,77 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                   </div>
                 )}
 
+                {/* File / Image Attachment Preview (if selected) */}
+                {attachedFile && (
+                  <div className="mb-2 flex items-center justify-between gap-3 px-3 py-2 bg-slate-900/90 border border-emerald-500/40 rounded-xl shadow-lg backdrop-blur-sm">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {attachedPreviewUrl ? (
+                        <img src={attachedPreviewUrl} alt="Preview" className="w-10 h-10 object-cover rounded-lg border border-emerald-500/40 flex-shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-500/30 flex items-center justify-center flex-shrink-0 text-emerald-300">
+                          <FileText size={20} />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-emerald-200 truncate max-w-[190px] sm:max-w-xs">{attachedFile.name}</p>
+                        <p className="text-[10px] font-mono text-slate-400">
+                          {attachedFile.size >= 1048576
+                            ? `${(attachedFile.size / 1048576).toFixed(2)} MB`
+                            : `${Math.round(attachedFile.size / 1024)} KB`}{' '}
+                          · <span className="text-emerald-400">&lt; 10 MB</span>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearAttachment}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/50 transition"
+                      title="Remove attachment"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                )}
+
                 <form onSubmit={send}>
+                  {/* Plus icon for registered users */}
+                  {auth.user && (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.tar,.gz,.7z,.mp3,.mp4,.wav,.json"
+                        onChange={handleFileSelect}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`icon-button transition ${
+                          attachedFile
+                            ? 'bg-emerald-950 border border-emerald-400 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
+                            : 'text-slate-400 hover:text-emerald-300 hover:bg-emerald-950/40'
+                        }`}
+                        title="Add image or file (< 10 MB)"
+                        aria-label="Add image or file"
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </>
+                  )}
+
                   <input
                     ref={messageInputRef}
                     aria-label="Your public chat message"
-                    required
+                    required={!attachedFile}
                     maxLength={live.policy.message_max_length} readOnly={live.sending}
                     autoComplete="off"
                     placeholder={
                       auth.user
                         ? form.data.is_ghost
                           ? '[ANONYMOUS DISGUISE ACTIVE] Type a secret message...'
+                          : attachedFile
+                          ? 'Add a caption or send file... (press Enter to send)'
                           : 'Message public chat... (press Enter to send)'
                         : 'Type your message... (press Enter to send)'
                     }
@@ -568,7 +768,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                   <button
                     className="button"
                     type="submit"
-                    disabled={live.sending || !form.data.message.trim()}
+                    disabled={!live.policy.can_send || live.sending || (!form.data.message.trim() && !attachedFile)}
                     aria-label="Send message"
                   >
                     <Send size={15} />

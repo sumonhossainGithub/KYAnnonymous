@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'driver' => 'argon2id',
+    'driver' => env('HASH_DRIVER', 'bcrypt'),
 
     'argon' => [
         'memory' => 65536,
