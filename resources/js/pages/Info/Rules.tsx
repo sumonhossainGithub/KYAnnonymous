@@ -61,6 +61,26 @@ export default function Rules() {
                 Use your pseudonym to share honest perspectives, seek advice, discuss ideas, and speak freely without fear of tracking or retaliation.
               </p>
             </div>
+
+            <div className="p-4 bg-slate-900/60 border border-cyan-950/80 rounded-xl space-y-1">
+              <h3 className="text-sm font-bold text-cyan-400 flex items-center space-x-2">
+                <BookOpen className="w-4 h-4" />
+                <span>5. Zero-Trace Privacy Standard</span>
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                No tracking cookies, zero IP address storage, and no browser fingerprinting. Guest chat sessions are ephemeral and purged automatically so your digital footprint remains completely private.
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-1">
+              <h3 className="text-sm font-bold text-slate-300 flex items-center space-x-2">
+                <Flag className="w-4 h-4" />
+                <span>6. Real-Time Chat & Thread Etiquette</span>
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                Keep conversations relevant and respectful. Use message sub-chats for deep discussions and reply threads. If you see harmful behavior, submit an anonymous report to administrators immediately.
+              </p>
+            </div>
           </div>
         </div>
       </div>

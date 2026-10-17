@@ -23,22 +23,102 @@ interface Props {
   initialMessages: ChatMessageItem[];
   rooms: ChatRoomSummary[];
   emergencyLockdown?: boolean;
+  isLocked?: boolean;
 }
 
-export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdown }: Props) {
+export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdown, isLocked }: Props) {
   const { auth, site } = usePage<SharedProps>().props;
   const form = useForm({ message: '', is_ghost: false });
   const subChatForm = useForm({ message: '', is_ghost: false, parent_public_id: '' });
+  const unlockForm = useForm({ password: '' });
   
   const stream = useRef<HTMLDivElement>(null);
   const nearBottom = useRef(true);
   const lastMessage = useRef<string | undefined>(undefined);
   const [unread, setUnread] = useState(false);
-  const live = useLiveChat(room.slug, initialMessages, site, site.chat_enabled && (!emergencyLockdown || auth.user?.role === 'SUPER_ADMIN') && (!!auth.user || site.guest_chat_enabled));
+  const live = useLiveChat(room.slug, initialMessages, site, !isLocked && site.chat_enabled && (!emergencyLockdown || auth.user?.role === 'SUPER_ADMIN') && (!!auth.user || site.guest_chat_enabled));
   const { messages, connected } = live;
   const [searchTerm, setSearchTerm] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [activeSubChatId, setActiveSubChatId] = useState<string | null>(null);
+
+  const unlockSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    unlockForm.post(`/chat/${room.slug}/unlock`, {
+      preserveScroll: true,
+    });
+  };
+
+  if (isLocked) {
+    return (
+      <AppLayout>
+        <div className="chat-page-heading font-mono text-xs">
+          <Link href="/chat" className="text-link text-cyan-400 hover:text-cyan-300">
+            <ArrowLeft size={14} />
+            <span>BACK TO CHAT ROOMS</span>
+          </Link>
+          <span className="flex items-center gap-1.5 text-slate-400">
+            <ShieldCheck size={14} className="text-emerald-400" />
+            <span>PASSWORD PROTECTED ROOM</span>
+          </span>
+        </div>
+
+        <div className="max-w-md mx-auto my-12 p-8 rounded-xl bg-slate-800/90 border border-slate-700/80 shadow-2xl backdrop-blur-sm">
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <Lock size={30} />
+            </div>
+            <div>
+              <span className="text-[11px] font-mono tracking-wider text-amber-400 uppercase">Room Locked</span>
+              <h1 className="text-2xl font-bold text-slate-100 mt-1">{room.name}</h1>
+              {room.description && <p className="text-sm text-slate-400 mt-1">{room.description}</p>}
+            </div>
+            <p className="text-xs text-slate-300 font-mono">
+              This room requires a password. Enter the password below to access the live conversation.
+            </p>
+
+            <form onSubmit={unlockSubmit} className="w-full space-y-4 text-left mt-3">
+              <div className="field">
+                <label htmlFor="unlock-password" className="font-mono text-xs text-slate-300">
+                  Room Password
+                </label>
+                <input
+                  id="unlock-password"
+                  type="password"
+                  autoFocus
+                  required
+                  placeholder="Enter room password..."
+                  value={unlockForm.data.password}
+                  onChange={(e) => unlockForm.setData('password', e.target.value)}
+                  className="font-sans w-full"
+                />
+                {unlockForm.errors.password && (
+                  <p className="field-error font-mono text-xs mt-1" role="alert">
+                    {unlockForm.errors.password}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={unlockForm.processing}
+                className="button w-full justify-center py-2.5 text-sm"
+              >
+                <span>{unlockForm.processing ? 'Verifying…' : 'Unlock & Join Room'}</span>
+                <ArrowUpRight size={16} />
+              </button>
+            </form>
+
+            <div className="pt-2 text-center">
+              <p className="text-[11px] font-mono text-slate-500">
+                Inactive rooms are automatically removed after 7 days of inactivity.
+              </p>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
 
   const latest = messages.at(-1)?.public_id;
@@ -134,9 +214,6 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
               <p className="font-sans text-xs text-slate-400">
                 Chat freely and anonymously with others in this room.
               </p>
-              <span className="font-mono text-[10px] text-slate-500">
-                100% private · No tracking cookies · No personal data stored
-              </span>
             </div>
 
             {messages.filter(message => !searchTerm || [message.message, message.sender.display_name, ...(message.sub_chats || []).map(reply => reply.message)].some(text => text.toLowerCase().includes(searchTerm.toLowerCase()))).map((message) => {
@@ -160,7 +237,7 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                     )}
                   </span>
 
-                  <div className="flex-1 min-w-0">
+                  <div className="chat-message-content">
                     <div className="message-meta font-mono text-[11px]">
                       <strong className={isGhost ? 'text-cyan-300' : ''}>
                         {own ? 'You' : message.sender.display_name}

@@ -13,6 +13,7 @@ use App\Support\Anonymity;
 use App\Support\SiteSettings;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -77,7 +78,23 @@ class CommunityController extends Controller
 
     public function chatIndex()
     {
-        $rooms = ChatRoom::where('is_active', true)->withCount('messages')->orderBy('created_at')->get(['id', 'public_id', 'name', 'slug', 'description']);
+        ChatRoom::purgeInactiveRooms();
+
+        $rooms = ChatRoom::where('is_active', true)
+            ->withCount('messages')
+            ->orderBy('created_at')
+            ->get(['id', 'public_id', 'name', 'slug', 'description', 'password'])
+            ->map(function ($r) {
+                return [
+                    'id' => $r->id,
+                    'public_id' => $r->public_id,
+                    'name' => $r->name,
+                    'slug' => $r->slug,
+                    'description' => $r->description,
+                    'messages_count' => $r->messages_count,
+                    'has_password' => !empty($r->password),
+                ];
+            });
 
         return Inertia::render('Chat/Index', [
             'rooms' => $rooms,
@@ -88,8 +105,10 @@ class CommunityController extends Controller
     {
         abort_unless($request->user()->status === 'ACTIVE', 403);
         abort_unless($request->user()->isSuperAdmin() || SiteSettings::get('member_rooms_enabled'), 403, 'Room creation is currently limited to administrators.');
+        
         $request->validate([
             'name' => ['required', 'string', 'max:60'],
+            'password' => ['required', 'string', 'min:3', 'max:100'],
             'description' => ['nullable', 'string', 'max:240'],
         ]);
         $request->merge([
@@ -98,25 +117,49 @@ class CommunityController extends Controller
         ]);
         $data = $request->validate([
             'name' => ['required', 'string', 'min:3', 'max:60'],
+            'password' => ['required', 'string', 'min:3', 'max:100'],
             'description' => ['nullable', 'string', 'max:240'],
         ]);
+
         $key = 'create-room:'.$request->user()->id;
         if (RateLimiter::tooManyAttempts($key, 3)) {
             return back()->withErrors(['name' => 'You have created 3 rooms this hour. Give them a little time to grow.']);
         }
         RateLimiter::hit($key, 3600);
+
         $room = ChatRoom::create([
-            ...$data,
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'password' => Hash::make($data['password']),
             'slug' => (Str::slug($data['name']) ?: 'room').'-'.strtolower((string) Str::ulid()),
             'created_by' => $request->user()->id,
             'is_active' => true,
         ]);
 
+        session()->put('room_unlocked_' . $room->id, true);
+
         return redirect()->route('chat.room', $room->slug)->with('success', 'Your room is open. Make someone feel welcome.');
+    }
+
+    public function unlockChatRoom(Request $request, string $slug)
+    {
+        $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        if (empty($room->password) || Hash::check($request->password, $room->password)) {
+            session()->put('room_unlocked_' . $room->id, true);
+            return back()->with('success', 'Room unlocked.');
+        }
+
+        return back()->withErrors(['password' => 'Incorrect password for this room.']);
     }
 
     public function homeChat(Request $request)
     {
+        ChatRoom::purgeInactiveRooms();
+
         if (SiteSettings::get('homepage_layout') === 'feed') return app(PostController::class)->feed($request);
         $room = ChatRoom::where('slug', SiteSettings::get('default_room_slug'))->where('is_active', true)->first();
         if (!$room) {
@@ -142,6 +185,7 @@ class CommunityController extends Controller
                 'name' => $room->name,
                 'slug' => $room->slug,
                 'description' => $room->description,
+                'has_password' => !empty($room->password),
             ],
             'initialMessages' => $messages,
             'emergencyLockdown' => \App\Models\AppSetting::isTrue('emergency_lockdown'),
@@ -151,14 +195,24 @@ class CommunityController extends Controller
 
     public function chatRoom(Request $request, string $slug)
     {
+        ChatRoom::purgeInactiveRooms();
+
         if ($request->user() && $request->user()->status !== 'ACTIVE') {
             abort(403, 'Account is suspended.');
         }
 
         $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
 
+        $isLocked = false;
+        if (!empty($room->password)) {
+            $isUnlocked = $request->user()?->isSuperAdmin() || (bool) session('room_unlocked_' . $room->id);
+            if (!$isUnlocked) {
+                $isLocked = true;
+            }
+        }
+
         $adminStealth = \App\Models\AppSetting::isTrue('admin_stealth_mode');
-        $messages = $this->loadMessagesForRoom($room->id, $adminStealth);
+        $messages = $isLocked ? [] : $this->loadMessagesForRoom($room->id, $adminStealth);
 
         return Inertia::render('Chat/Room', [
             'room' => [
@@ -166,7 +220,9 @@ class CommunityController extends Controller
                 'name' => $room->name,
                 'slug' => $room->slug,
                 'description' => $room->description,
+                'has_password' => !empty($room->password),
             ],
+            'isLocked' => $isLocked,
             'initialMessages' => $messages,
             'emergencyLockdown' => \App\Models\AppSetting::isTrue('emergency_lockdown'),
             'rooms' => fn () => ChatRoom::where('is_active', true)->orderBy('created_at')->get(['public_id', 'name', 'slug', 'description']),
@@ -263,6 +319,9 @@ class CommunityController extends Controller
     public function sendChatMessage(Request $request, string $slug)
     {
         $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        if (!empty($room->password) && !$request->user()?->isSuperAdmin() && !session('room_unlocked_' . $room->id)) {
+            throw ValidationException::withMessages(['message' => 'Room password required. Please unlock the room first.']);
+        }
         $user = $request->user();
         if (!SiteSettings::get('chat_enabled')) throw ValidationException::withMessages(['message' => 'Chat is paused by an administrator.']);
         if (!$user && !SiteSettings::get('guest_chat_enabled')) throw ValidationException::withMessages(['message' => 'Please sign in to send messages.']);
@@ -367,6 +426,9 @@ class CommunityController extends Controller
     {
         abort_if($request->user() && $request->user()->status !== 'ACTIVE', 403, 'Account is suspended.');
         $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        if (!empty($room->password) && !$request->user()?->isSuperAdmin() && !session('room_unlocked_' . $room->id)) {
+            return response()->json(['messages' => [], 'policy' => ['can_send' => false, 'reason' => 'Room password required.']], 403);
+        }
         return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
     }
 

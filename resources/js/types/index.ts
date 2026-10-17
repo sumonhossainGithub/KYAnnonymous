@@ -94,6 +94,7 @@ export interface ChatRoomSummary {
   slug: string;
   description: string | null;
   messages_count?: number;
+  has_password?: boolean;
 }
 
 export interface ChatSender {

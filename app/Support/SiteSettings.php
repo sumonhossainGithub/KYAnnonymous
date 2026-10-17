@@ -10,8 +10,8 @@ class SiteSettings
     {
         return [
             'site_name' => 'KYAnonymous', 'tagline' => '', 'logo_text' => '👻',
-            'primary_color' => '#38bdf8', 'background_color' => '#030712', 'surface_color' => '#0f172a',
-            'corner_radius' => 12, 'font_family' => 'system', 'density' => 'comfortable', 'animations_enabled' => true,
+            'primary_color' => '#0ea5e9', 'background_color' => '#0f172a', 'surface_color' => '#1e293b',
+            'corner_radius' => 12, 'font_family' => 'system', 'density' => 'comfortable', 'animations_enabled' => false,
             'homepage_layout' => 'chat', 'default_room_slug' => 'common-orbit',
             'homepage_title' => '',
             'homepage_description' => '',
@@ -22,7 +22,7 @@ class SiteSettings
             'registration_enabled' => true, 'chat_enabled' => true, 'guest_chat_enabled' => true,
             'member_rooms_enabled' => true, 'anonymous_enabled' => true, 'replies_enabled' => true,
             'posts_enabled' => true, 'comments_enabled' => true,
-            'message_max_length' => 500, 'message_rate_limit' => 30, 'guest_rate_limit' => 20,
+            'message_max_length' => 1000, 'message_rate_limit' => 30, 'guest_rate_limit' => 20,
             'poll_interval' => 2500, 'history_limit' => 50, 'guest_retention_minutes' => 15,
         ];
     }

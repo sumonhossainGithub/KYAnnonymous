@@ -13,6 +13,7 @@ import {
   MessageSquare,
   ShieldCheck,
   Terminal,
+  Lock,
 } from 'lucide-react';
 
 export default function ChatIndex({ rooms }: { rooms: ChatRoomSummary[] }) {
@@ -20,7 +21,7 @@ export default function ChatIndex({ rooms }: { rooms: ChatRoomSummary[] }) {
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
   const [view, setView] = useState<'rooms' | 'universe'>('rooms');
-  const form = useForm({ name: '', description: '' });
+  const form = useForm({ name: '', description: '', password: '' });
 
   const filtered = rooms.filter((room) =>
     `${room.name} ${room.description || ''}`.toLowerCase().includes(query.toLowerCase())
@@ -100,7 +101,7 @@ export default function ChatIndex({ rooms }: { rooms: ChatRoomSummary[] }) {
                 required
                 minLength={3}
                 maxLength={60}
-                placeholder="e.g. General Discussion, Gaming, Privacy Advice"
+                placeholder="e.g. Secret Circle, Privacy Hub, Coding Discussion"
                 value={form.data.name}
                 onChange={(e) => form.setData('name', e.target.value)}
                 className="font-sans"
@@ -108,6 +109,28 @@ export default function ChatIndex({ rooms }: { rooms: ChatRoomSummary[] }) {
               {form.errors.name && (
                 <p id="room-name-error" className="field-error font-mono text-xs" role="alert">
                   {form.errors.name}
+                </p>
+              )}
+            </div>
+            <div className="field">
+              <label htmlFor="room-password" className="font-mono text-xs text-slate-300 flex items-center justify-between">
+                <span>Room Password</span>
+                <span className="text-amber-400 font-normal">Required for access</span>
+              </label>
+              <input
+                id="room-password"
+                type="password"
+                required
+                minLength={3}
+                maxLength={100}
+                placeholder="Set a password for your room..."
+                value={form.data.password}
+                onChange={(e) => form.setData('password', e.target.value)}
+                className="font-sans"
+              />
+              {form.errors.password && (
+                <p id="room-password-error" className="field-error font-mono text-xs" role="alert">
+                  {form.errors.password}
                 </p>
               )}
             </div>
@@ -129,7 +152,10 @@ export default function ChatIndex({ rooms }: { rooms: ChatRoomSummary[] }) {
               )}
             </div>
             <div className="form-bottom font-mono text-xs">
-              <p className="text-slate-500">Public room · Everyone can join and chat.</p>
+              <p className="text-slate-400 flex items-center gap-1.5">
+                <Lock size={12} className="text-amber-400" />
+                <span>Password protected · Automatically deleted if inactive for 7 days</span>
+              </p>
               <button className="button" disabled={form.processing}>
                 <span>{form.processing ? 'Creating Room…' : 'Create Room'}</span>
                 <ArrowUpRight size={14} />
@@ -191,20 +217,25 @@ export default function ChatIndex({ rooms }: { rooms: ChatRoomSummary[] }) {
           <Link href={`/chat/${room.slug}`} key={room.public_id} className={`room-preview room-tone-${i % 3}`}>
             <div className="room-preview-top font-mono">
               <span className="room-symbol">
-                <Radio size={20} className="text-cyan-400" />
+                {room.has_password ? <Lock size={18} className="text-amber-400" /> : <Radio size={20} className="text-cyan-400" />}
               </span>
               <span className="room-label">ROOM 0{i + 1}</span>
+              {room.has_password && (
+                <span className="text-[10px] text-amber-400 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                  PROTECTED
+                </span>
+              )}
               <ArrowUpRight size={16} />
             </div>
             <h2>{room.name}</h2>
-            <p>{room.description || 'Public discussion room.'}</p>
+            <p>{room.description || 'Discussion room.'}</p>
             <div className="room-preview-bottom font-mono">
               <span>
                 <MessageSquare size={13} className="text-cyan-400" />
                 {room.messages_count || 0} messages
               </span>
               <span>
-                Join Chat <ArrowUpRight size={13} />
+                {room.has_password ? 'Unlock & Join' : 'Join Chat'} <ArrowUpRight size={13} />
               </span>
             </div>
           </Link>

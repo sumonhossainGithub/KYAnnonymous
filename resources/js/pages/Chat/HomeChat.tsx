@@ -115,9 +115,6 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             </span>
             <div>
               <h2 className="font-bold tracking-wide text-slate-100 text-sm">{room.name} · Live Chatbox</h2>
-              <p className="font-mono text-[11px] text-slate-400">
-                Each message has its own dedicated sub-chat. Click "Sub-chat" on any message to join the thread.
-              </p>
             </div>
             <span className={`chat-status font-mono text-[10px] ${connected ? '' : 'offline'}`}>
               <i className="status-dot animate-ping" />
@@ -125,7 +122,6 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             </span>
           </header>
 
-          <p className="chat-welcome-message">{site.welcome_message}</p>
           {/* Conversation Messages Stream */}
           <div
             className="conversation-stream"
@@ -152,9 +148,6 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
               <p className="font-sans text-xs text-slate-400">
                 Welcome! Everyone can read messages. Start a conversation or reply in any message's sub-chat.
               </p>
-              <span className="font-mono text-[10px] text-slate-500">
-                100% private · Zero IP logging · Ghost aliases supported
-              </span>
             </div>
 
             {messages.filter(message => !searchTerm || [message.message, message.sender.display_name, ...(message.sub_chats || []).map(reply => reply.message)].some(text => text.toLowerCase().includes(searchTerm.toLowerCase()))).map((message) => {
@@ -178,7 +171,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                     )}
                   </span>
 
-                  <div className="flex-1 min-w-0">
+                  <div className="chat-message-content">
                     <div className="message-meta font-mono text-[11px]">
                       <strong className={isGhost ? 'text-cyan-300' : ''}>
                         {own ? 'You' : message.sender.display_name}
@@ -470,49 +463,6 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             </div>
           </div>
         </section>
-
-        {/* Sidebar Info */}
-        <aside className="conversation-sidebar">
-          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 text-left mb-4">
-            <span className="eyebrow font-mono text-cyan-400 mb-2">PUBLIC STREAM</span>
-            <h3 className="font-bold text-slate-100 text-base mb-1">Untraceable & Live</h3>
-            <p className="font-mono text-xs text-slate-400 leading-relaxed">
-              Welcome to the public homepage chat. All conversations are private, non-indexed, and never tied to your real identity.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 text-left mb-4">
-            <h4 className="font-mono text-xs uppercase text-slate-300 mb-2 flex items-center justify-between">
-              <span>Other Rooms</span>
-              <Link href="/chat" className="text-cyan-400 text-[10px] hover:underline">View All</Link>
-            </h4>
-            <div className="space-y-1.5 font-mono text-xs">
-              {rooms
-                .filter((r) => r.slug !== room.slug)
-                .slice(0, 4)
-                .map((r) => (
-                  <Link
-                    key={r.public_id}
-                    href={`/chat/${r.slug}`}
-                    className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 hover:bg-slate-800/60 text-slate-300 hover:text-cyan-300 transition"
-                  >
-                    <span>#{r.name}</span>
-                    <ArrowRight size={12} className="text-slate-600" />
-                  </Link>
-                ))}
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/80 text-left font-mono text-[11px] text-slate-400 space-y-2">
-            <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-              <ShieldCheck size={14} />
-              <span>Zero-Trace Guarantee</span>
-            </div>
-            <p className="text-[10px] leading-relaxed text-slate-500">
-              No cookies, no IP address storage, and zero browser fingerprinting. Your voice is completely anonymous.
-            </p>
-          </div>
-        </aside>
       </div>
     </AppLayout>
   );
