@@ -64,6 +64,7 @@ Route::middleware(['auth', 'not_banned'])->group(function () {
         Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
         Route::post('/users/{public_id}/toggle-ban', [AdminController::class, 'toggleBanUser'])->name('admin.users.toggle_ban');
         Route::post('/users/{public_id}/terminate-sessions', [AdminController::class, 'terminateUserSessions'])->name('admin.users.terminate_sessions');
+        Route::delete('/users/{public_id}', [AdminController::class, 'deleteUser'])->name('admin.users.delete');
         
         // Posts Moderation
         Route::get('/posts', [AdminController::class, 'posts'])->name('admin.posts');

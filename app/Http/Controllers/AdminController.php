@@ -413,6 +413,34 @@ class AdminController extends Controller
         return back()->with('success', "Terminated {$deleted} active sessions for user @{$user->username}.");
     }
 
+    public function deleteUser(Request $request, string $publicId)
+    {
+        $user = User::where('public_id', $publicId)->firstOrFail();
+        if ($user->isSuperAdmin()) {
+            return back()->withErrors(['error' => 'Cannot delete Super Admin account.']);
+        }
+        if ($user->id === $request->user()->id) {
+            return back()->withErrors(['error' => 'You cannot delete your own account from here.']);
+        }
+
+        $username = $user->username;
+
+        // Invalidate all sessions immediately
+        DB::table('sessions')->where('user_id', $user->id)->delete();
+
+        AdminAuditLog::create([
+            'admin_id' => $request->user()->id,
+            'action' => 'USER_DELETED',
+            'target_type' => 'user',
+            'target_public_id' => $user->public_id,
+            'safe_metadata' => ['username' => $username],
+        ]);
+
+        $user->delete();
+
+        return back()->with('success', "User @{$username} has been permanently deleted from the database.");
+    }
+
     public function auditLogs()
     {
         $adminStealth = \App\Models\AppSetting::isTrue('admin_stealth_mode');

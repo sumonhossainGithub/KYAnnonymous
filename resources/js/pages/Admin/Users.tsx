@@ -1,7 +1,7 @@
 import React from 'react';
 import { useForm, router, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/AppLayout';
-import { Users as UsersIcon, Ban, CheckCircle, ArrowLeft, Search, LogOut } from 'lucide-react';
+import { Users as UsersIcon, Ban, CheckCircle, ArrowLeft, Search, LogOut, Trash2 } from 'lucide-react';
 
 interface UserItem {
   public_id: string;
@@ -39,6 +39,12 @@ export default function Users({ users, query }: Props) {
   const handleTerminateSessions = (publicId: string, username: string) => {
     if (confirm(`Log out @${username} from all devices?`)) {
       router.post(`/admin/users/${publicId}/terminate-sessions`);
+    }
+  };
+
+  const handleDeleteUser = (publicId: string, username: string) => {
+    if (confirm(`Are you sure you want to PERMANENTLY DELETE @${username} from the database? All their posts, comments, and messages will also be removed. This cannot be undone.`)) {
+      router.delete(`/admin/users/${publicId}`);
     }
   };
 
@@ -156,6 +162,16 @@ export default function Users({ users, query }: Props) {
                               <span>Ban User</span>
                             </>
                           )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteUser(u.public_id, u.username)}
+                          className="px-2.5 py-1 rounded text-[11px] font-mono font-semibold transition flex items-center gap-1 border bg-red-950/60 hover:bg-red-900 border-red-800 hover:border-red-600 text-red-300 hover:text-white"
+                          title="Permanently delete user from database"
+                        >
+                          <Trash2 className="w-3 h-3 text-red-400" />
+                          <span>Delete</span>
                         </button>
                       </div>
                     ) : (

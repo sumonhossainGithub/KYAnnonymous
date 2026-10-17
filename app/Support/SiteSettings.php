@@ -13,7 +13,7 @@ class SiteSettings
             'primary_color' => '#38bdf8', 'background_color' => '#030712', 'surface_color' => '#0f172a',
             'corner_radius' => 12, 'font_family' => 'system', 'density' => 'comfortable', 'animations_enabled' => true,
             'homepage_layout' => 'chat', 'default_room_slug' => 'common-orbit',
-            'homepage_title' => 'KYAnonymous Community',
+            'homepage_title' => '',
             'homepage_description' => '',
             'welcome_message' => 'Welcome! Be kind and keep personal information private.',
             'announcement_enabled' => false, 'announcement_text' => '',
@@ -44,9 +44,10 @@ class SiteSettings
         foreach (static::defaults() as $key => $value) {
             $rules[$key] = is_bool($value) ? ['required', 'boolean'] : ['present', 'nullable', 'string', 'max:500'];
         }
-        foreach (['site_name' => 50, 'logo_text' => 8, 'homepage_title' => 120, 'welcome_message' => 500, 'footer_text' => 200] as $key => $max) {
+        foreach (['site_name' => 50, 'logo_text' => 8, 'welcome_message' => 500, 'footer_text' => 200] as $key => $max) {
             $rules[$key] = ['required', 'string', "max:$max"];
         }
+        $rules['homepage_title'] = ['present', 'nullable', 'string', 'max:120'];
         $rules['tagline'] = ['present', 'nullable', 'string', 'max:100'];
         $rules['homepage_description'] = ['present', 'nullable', 'string', 'max:500'];
         foreach (['rules_text', 'privacy_text'] as $key) $rules[$key] = ['present', 'nullable', 'string', 'max:15000'];
