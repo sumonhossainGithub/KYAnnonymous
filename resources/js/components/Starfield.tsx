@@ -152,11 +152,10 @@ export default function Starfield({ paused }: { paused: boolean }) {
       context.fillStyle = moonGlow;
       context.fillRect(0, 0, width, height);
 
-      // 2. Render Slowly Moving Stars
+      // 2. Render Slowly Moving Stars (serene, slow celestial motion)
       stars.forEach((star, i) => {
-        // Continuous slow celestial drift
-        let currentX = (star.x + star.driftX * time * 0.05) % 1;
-        let currentY = (star.y + star.driftY * time * 0.05) % 1;
+        let currentX = (star.x + star.driftX * time * 0.008) % 1;
+        let currentY = (star.y + star.driftY * time * 0.008) % 1;
         if (currentX < 0) currentX += 1;
         if (currentY > 1) currentY -= 1;
 

@@ -136,11 +136,17 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        if ($user->isSuperAdmin()) {
-            return redirect()->intended(route('admin.dashboard'));
+        $intended = $request->session()->pull('url.intended');
+        $targetUrl = '/';
+
+        if ($intended) {
+            $parsedPath = parse_url($intended, PHP_URL_PATH) ?: $intended;
+            if (!in_array($parsedPath, ['/login', '/register', '/recovery'])) {
+                $targetUrl = $intended;
+            }
         }
 
-        return redirect()->intended(route('home'));
+        return Inertia::location($targetUrl);
     }
 
     public function logout(Request $request)
@@ -149,7 +155,7 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('home');
+        return Inertia::location('/');
     }
 
     public function showRecovery()

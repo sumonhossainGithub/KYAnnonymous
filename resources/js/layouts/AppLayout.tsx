@@ -33,7 +33,7 @@ const navigation = [
   { href: '/rules', label: 'Rules & Safety', icon: ShieldCheck },
 ];
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default function AppLayout({ children, hideFooter }: { children: ReactNode; hideFooter?: boolean }) {
   const { auth, flash, site } = usePage<SharedProps>().props;
   const { url } = usePage();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -485,19 +485,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
 
-        <footer className="cosmos-footer">
-          <div className="cosmos-footer-inner">
-            <span className="flex items-center gap-2">
-              <span className="text-sm select-none">{site.logo_text}</span>
-              <span>{site.footer_text}</span>
-            </span>
-            <div>
-              <Link href="/privacy">Privacy Policy</Link>
-              <Link href="/rules">Community Rules</Link>
-              <span>© {new Date().getFullYear()} {site.site_name}</span>
+        {!(hideFooter || url === '/' || url.startsWith('/?') || url.startsWith('/chat')) && (
+          <footer className="cosmos-footer">
+            <div className="cosmos-footer-inner">
+              <span className="flex items-center gap-2">
+                <span className="text-sm select-none">{site.logo_text}</span>
+                <span>{site.footer_text}</span>
+              </span>
+              <div>
+                <Link href="/privacy">Privacy Policy</Link>
+                <Link href="/rules">Community Rules</Link>
+                <span>© {new Date().getFullYear()} {site.site_name}</span>
+              </div>
             </div>
-          </div>
-        </footer>
+          </footer>
+        )}
       </div>
 
       {!mobileOpen && (

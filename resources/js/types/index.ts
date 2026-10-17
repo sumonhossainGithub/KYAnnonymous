@@ -127,5 +127,7 @@ export interface ChatMessageItem {
   sender: ChatSender;
   sub_chats?: ChatSubMessage[];
   sub_chats_count?: number;
+  butterfly_count?: number;
+  has_reacted_butterfly?: boolean;
 }
 

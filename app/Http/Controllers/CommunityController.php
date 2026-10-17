@@ -280,6 +280,11 @@ class CommunityController extends Controller
         ChatMessage::where('created_at', '<', now()->subDays(30))->delete();
 
         $mySent = (array) session('my_message_ids', []);
+        $userReactKey = $userId ? "u_{$userId}" : 'g_' . substr((string) session()->getId(), 0, 8);
+        $reactedMessageIds = \Illuminate\Support\Facades\DB::table('chat_message_reactions')
+            ->where('user_id', $userReactKey)
+            ->pluck('chat_message_id')
+            ->toArray();
 
         return ChatMessage::with(['sender', 'subChats' => fn ($query) => $query->orderBy('id'), 'subChats.sender'])
             ->where('chat_room_id', $roomId)
@@ -290,7 +295,7 @@ class CommunityController extends Controller
             ->get()
             ->reverse()
             ->values()
-            ->map(function ($m) use ($adminStealth, $userId, $mySent) {
+            ->map(function ($m) use ($adminStealth, $userId, $mySent, $reactedMessageIds) {
                 $sender = $this->formatSender($m, $adminStealth);
                 $isOwn = ($userId && $m->user_id === $userId) || in_array($m->public_id, $mySent);
                 $subChats = $m->subChats->map(function ($sub) use ($adminStealth, $m, $userId, $mySent) {
@@ -317,6 +322,8 @@ class CommunityController extends Controller
                     'sender' => $sender,
                     'sub_chats' => $subChats,
                     'sub_chats_count' => $subChats->count(),
+                    'butterfly_count' => (int) ($m->butterfly_count ?? 0),
+                    'has_reacted_butterfly' => in_array($m->id, $reactedMessageIds),
                 ];
             });
     }
@@ -471,6 +478,37 @@ class CommunityController extends Controller
 
         \Illuminate\Support\Facades\Cache::put($key, $active, 8);
         return response()->json(['status' => 'ok']);
+    }
+
+    public function reactButterfly(Request $request, string $slug, string $public_id)
+    {
+        $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        $message = ChatMessage::where('chat_room_id', $room->id)->where('public_id', $public_id)->firstOrFail();
+        $user = $request->user();
+        $userReactKey = $user ? "u_{$user->id}" : 'g_' . substr((string) session()->getId(), 0, 8);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($message, $userReactKey) {
+            $existing = \Illuminate\Support\Facades\DB::table('chat_message_reactions')
+                ->where('chat_message_id', $message->id)
+                ->where('user_id', $userReactKey)
+                ->first();
+
+            if ($existing) {
+                \Illuminate\Support\Facades\DB::table('chat_message_reactions')
+                    ->where('id', $existing->id)
+                    ->delete();
+                $message->decrement('butterfly_count');
+            } else {
+                \Illuminate\Support\Facades\DB::table('chat_message_reactions')->insert([
+                    'chat_message_id' => $message->id,
+                    'user_id' => $userReactKey,
+                    'created_at' => now(),
+                ]);
+                $message->increment('butterfly_count');
+            }
+        });
+
+        return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
     }
 
     public function chatMessages(Request $request, string $slug)

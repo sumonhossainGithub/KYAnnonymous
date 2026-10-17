@@ -3096,6 +3096,69 @@ textarea {
   .topbar-left > a > div { max-width: 110px; }
 }
 
+/* Butterfly Reaction & Perching Animations */
+@keyframes wingFlapLeft {
+  0%, 100% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(65deg);
+  }
+}
+
+@keyframes wingFlapRight {
+  0%, 100% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(-65deg);
+  }
+}
+
+.animate-wingFlapLeft {
+  transform-origin: 12px 12px;
+  animation: wingFlapLeft 0.14s infinite ease-in-out;
+}
+
+.animate-wingFlapRight {
+  transform-origin: 12px 12px;
+  animation: wingFlapRight 0.14s infinite ease-in-out;
+}
+
+@keyframes butterflyBreathe {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) rotate(4deg) scale(1.08);
+  }
+}
+
+.perched-butterfly {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  user-select: none;
+  animation: butterflyBreathe 3.5s infinite ease-in-out;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+}
+
+.perched-butterfly:hover {
+  transform: scale(1.22) translateY(-2px);
+  filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.85));
+}
+
+.butterfly-react-btn {
+  opacity: 0.72;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-message:hover .butterfly-react-btn,
+.butterfly-react-btn.has-reacted {
+  opacity: 1;
+}
+
 @media(prefers-reduced-motion:reduce) {
 
   *,*:before,*:after {

@@ -128,6 +128,7 @@ export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], si
 
   return { ...snapshot, typing: snapshot.typing || [], connected, sending, error, refresh, sendTyping,
     send: (data: object) => write(`/chat/${encodeURIComponent(slug)}/message`, 'POST', data),
+    reactButterfly: (publicId: string) => write(`/chat/${encodeURIComponent(slug)}/messages/${publicId}/butterfly`, 'POST'),
     remove: (publicId: string) => write(`/admin/chat/${encodeURIComponent(slug)}/messages/${publicId}`, 'DELETE'),
   };
 }

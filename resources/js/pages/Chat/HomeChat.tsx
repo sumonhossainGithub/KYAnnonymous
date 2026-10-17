@@ -18,8 +18,10 @@ import {
   ArrowRight,
   MessageCircle,
   Smile,
+  Trash2,
 } from 'lucide-react';
 import EmojiPicker from '@/components/EmojiPicker';
+import GardenButterflyOverlay, { type GardenButterflyRef } from '@/components/GardenButterflyOverlay';
 
 interface Props {
   room: ChatRoomSummary;
@@ -82,6 +84,16 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
     }, 0);
   };
 
+  const butterflyRef = useRef<GardenButterflyRef>(null);
+
+  const handleButterflyReact = async (msg: ChatMessageItem, targetEl: HTMLElement) => {
+    if (!msg.has_reacted_butterfly) {
+      const rect = targetEl.getBoundingClientRect();
+      butterflyRef.current?.flyTo(rect);
+    }
+    await live.reactButterfly(msg.public_id);
+  };
+
 
   const latest = messages.at(-1)?.public_id;
 
@@ -118,11 +130,12 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   };
 
   const removeMessage = (publicId: string) => {
-    if (window.confirm('Remove this message and its replies from the room?')) void live.remove(publicId);
+    void live.remove(publicId);
   };
 
   return (
-    <AppLayout>
+    <AppLayout hideFooter>
+      <GardenButterflyOverlay ref={butterflyRef} />
       {site.homepage_title ? (
         <section className="site-home-intro"><h1>{site.homepage_title}</h1>{site.homepage_description ? <p>{site.homepage_description}</p> : null}</section>
       ) : null}
@@ -204,35 +217,80 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                       )}
                     </div>
 
-                    {/* Bubble and Reply button placed side-by-side */}
+                    {/* Bubble and Action buttons placed side-by-side */}
                     <div className={`flex items-end gap-2 ${own ? 'flex-row-reverse' : 'flex-row'}`}>
                       <div
-                        className={`message-bubble font-sans cursor-pointer transition select-none ${touchedMessageId === message.public_id ? 'show-time' : ''}`}
+                        className={`message-bubble relative font-sans cursor-pointer transition select-none ${touchedMessageId === message.public_id ? 'show-time' : ''}`}
                         onClick={() => setTouchedMessageId(touchedMessageId === message.public_id ? null : message.public_id)}
                         title="Click or tap to view timestamp"
                       >
+                        {/* Perched Garden Butterfly sitting on the message */}
+                        {(message.butterfly_count ?? 0) > 0 && (
+                          <span
+                            className="perched-butterfly absolute -top-2.5 -right-2 px-1.5 py-0.5 rounded-full bg-emerald-950/95 border border-emerald-400/50 text-[10px] font-mono text-emerald-200 shadow-[0_0_12px_rgba(52,211,153,0.5)] flex items-center gap-1 z-10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleButterflyReact(message, e.currentTarget);
+                            }}
+                            title="A garden butterfly is resting here! Click to react"
+                          >
+                            <span className="text-xs">🦋</span>
+                            <span>{message.butterfly_count}</span>
+                          </span>
+                        )}
+
                         <p>{message.message}</p>
                         <time className="font-mono text-[10px]">{message.created_at}</time>
                       </div>
 
-                      {/* Reply button on the right side of the message */}
-                      <button
-                        type="button"
-                        onClick={() => setActiveSubChatId(isSubChatOpen ? null : message.public_id)}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md transition text-[11px] font-mono flex-shrink-0 ${
-                          isSubChatOpen
-                            ? 'bg-cyan-950 border border-cyan-500/50 text-cyan-300'
-                            : 'bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200'
-                        }`}
-                        title="Reply in Sub-chat"
-                      >
-                        <MessageSquare size={11} className={subCount > 0 ? 'text-cyan-400' : ''} />
-                        <span>{subCount > 0 ? `Reply (${subCount})` : 'Reply'}</span>
-                        <CornerDownRight size={10} className="text-slate-500" />
-                      </button>
-                    </div>
+                      {/* Action buttons on the side of the message */}
+                      <div className="flex items-center gap-1">
+                        {/* Butterfly React Option */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleButterflyReact(message, e.currentTarget)}
+                          className={`butterfly-react-btn inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono transition flex-shrink-0 ${
+                            message.has_reacted_butterfly
+                              ? 'bg-emerald-950/90 border border-emerald-400 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.3)] has-reacted'
+                              : 'bg-slate-900/60 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/40 text-slate-400 hover:text-emerald-300'
+                          }`}
+                          title={message.has_reacted_butterfly ? 'Butterfly has visited (Click to recall)' : 'Send a garden butterfly to sit on this message'}
+                        >
+                          <span className="text-xs">🦋</span>
+                          {(message.butterfly_count ?? 0) > 0 && <span>{message.butterfly_count}</span>}
+                        </button>
 
-                    {auth.user?.role === 'SUPER_ADMIN' && <button type="button" className="text-xs text-rose-300 mt-2" disabled={live.sending} onClick={() => removeMessage(message.public_id)}>Remove message</button>}
+                        {/* Reply button on the right side of the message */}
+                        <button
+                          type="button"
+                          onClick={() => setActiveSubChatId(isSubChatOpen ? null : message.public_id)}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md transition text-[11px] font-mono flex-shrink-0 ${
+                            isSubChatOpen
+                              ? 'bg-cyan-950 border border-cyan-500/50 text-cyan-300'
+                              : 'bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                          title="Reply in Sub-chat"
+                        >
+                          <MessageSquare size={11} className={subCount > 0 ? 'text-cyan-400' : ''} />
+                          <span>{subCount > 0 ? `Reply (${subCount})` : 'Reply'}</span>
+                          <CornerDownRight size={10} className="text-slate-500" />
+                        </button>
+
+                        {/* Admin Delete Button */}
+                        {auth.user?.role === 'SUPER_ADMIN' && (
+                          <button
+                            type="button"
+                            onClick={() => removeMessage(message.public_id)}
+                            disabled={live.sending}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono transition flex-shrink-0 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 hover:text-white"
+                            title="Delete message immediately"
+                          >
+                            <Trash2 size={11} />
+                            <span>Delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
                     {/* Sub-chat Drawer / Nested Thread */}
                     {isSubChatOpen && (
@@ -281,7 +339,18 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                                     <span className="text-slate-500 opacity-60 group-hover:opacity-100 transition">{sub.created_at}</span>
                                   </div>
                                   <p className="text-slate-200 font-sans pl-5">{sub.message}</p>
-                                  {auth.user?.role === 'SUPER_ADMIN' && <button type="button" className="text-xs text-rose-300 mt-2" disabled={live.sending} onClick={() => removeMessage(sub.public_id)}>Remove reply</button>}
+                                  {auth.user?.role === 'SUPER_ADMIN' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => removeMessage(sub.public_id)}
+                                      disabled={live.sending}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 mt-1.5 rounded text-[10px] font-mono transition bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 hover:text-white"
+                                      title="Delete reply immediately"
+                                    >
+                                      <Trash2 size={10} />
+                                      <span>Delete</span>
+                                    </button>
+                                  )}
                                 </div>
                               );
                             })}
