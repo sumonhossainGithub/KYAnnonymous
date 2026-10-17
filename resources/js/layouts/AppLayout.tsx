@@ -11,8 +11,6 @@ import {
   LogOut,
   ShieldCheck,
   Radio,
-  Pause,
-  Play,
   Menu,
   X,
   FileText,
@@ -270,17 +268,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </>
         )}
 
-        {/* Bottom Ambient Stars Toggle & Logout */}
+        {/* Bottom Actions & Logout */}
         <div className="sidebar-bottom pt-4 mt-auto space-y-2">
-          <button
-            onClick={() => setPaused(!paused)}
-            aria-pressed={paused}
-            className="w-full py-2 px-3 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-[11px] text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2 transition font-mono"
-          >
-            {paused ? <Play size={12} className="text-cyan-400" /> : <Pause size={12} />}
-            <span>{paused ? 'Resume Background Stars' : 'Pause Background Stars'}</span>
-          </button>
-
           {auth.user && (
             <Link
               href="/logout"
@@ -395,16 +384,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </div>
 
             <div className="topbar-actions flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-              {/* Stars animation toggle button (desktop) */}
-              <button
-                onClick={() => setPaused(!paused)}
-                className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-800 hover:border-slate-700 bg-slate-900/60 hover:bg-slate-900 text-[11px] font-mono text-slate-400 hover:text-slate-200 transition"
-                title={paused ? 'Resume moving background stars' : 'Pause moving background stars'}
-              >
-                {paused ? <Play size={11} className="text-cyan-400" /> : <Pause size={11} />}
-                <span>{paused ? 'Stars: Paused' : 'Stars: On'}</span>
-              </button>
-
               {/* Quick Search */}
               <Link href="/search" className="icon-button !w-8 !h-8" aria-label="Search the community" title="Search discussions and notices">
                 <Search size={16} />

@@ -87,24 +87,6 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
       {site.homepage_title ? (
         <section className="site-home-intro"><h1>{site.homepage_title}</h1>{site.homepage_description ? <p>{site.homepage_description}</p> : null}</section>
       ) : null}
-      {/* Top Banner */}
-      <div className="mb-4 flex items-center justify-between gap-3 pb-3 border-b border-slate-800/80 w-full min-w-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-cyan-950/60 border border-cyan-500/30 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(6,182,212,0.25)] flex-shrink-0 select-none animate-pulse">
-            👻
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base sm:text-lg font-bold text-slate-100 truncate">{room.name}</h1>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/40 text-[10px] font-mono text-emerald-300 flex items-center gap-1.5 flex-shrink-0">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                PUBLIC CHAT
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Public Chat Layout */}
       <div className="chat-layout">
         <section className="conversation-panel" aria-label="Public Chatbox">
@@ -114,7 +96,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
               <MessageCircle size={20} className="text-cyan-400" />
             </span>
             <div>
-              <h2 className="font-bold tracking-wide text-slate-100 text-sm">{room.name} · Live Chatbox</h2>
+              <h2 className="font-bold tracking-wide text-slate-100 text-sm">Chatbox</h2>
             </div>
             <span className={`chat-status font-mono text-[10px] ${connected ? '' : 'offline'}`}>
               <i className="status-dot animate-ping" />

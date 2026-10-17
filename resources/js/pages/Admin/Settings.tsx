@@ -71,8 +71,8 @@ export default function Settings({ settings, defaults, rooms }: Props) {
               {field('message_rate_limit', 'Member messages per minute', 'number', '1–60 per member.', 1, 60)}
               {field('guest_rate_limit', 'Guest messages per minute', 'number', '1–30 per guest connection.', 1, 30)}
               {field('poll_interval', 'Update interval (milliseconds)', 'number', '1,000–10,000. Background updates never navigate the page.', 1000, 10000)}
-              {field('history_limit', 'Recent top-level messages', 'number', '10–100 messages loaded per room. Does not delete member history.', 10, 100)}
-              {field('guest_retention_minutes', 'Guest history lifetime (minutes)', 'number', 'Expired guest messages are removed when conversations are loaded.', 1, 1440)}
+              {field('history_limit', 'Recent top-level messages', 'number', '10–2,000 messages loaded per room.', 10, 2000)}
+              {field('guest_retention_minutes', 'Public message lifetime (minutes)', 'number', 'Messages older than 30 days (43,200 mins) are automatically removed.', 1, 43200)}
             </div>
           </section>}
           <div className="settings-save"><span role="status">{form.isDirty ? 'You have unsaved changes' : 'All changes saved'}</span><div><button type="button" className="button secondary" onClick={() => form.reset()} disabled={!form.isDirty}>Discard changes</button><button className="button" disabled={form.processing || !form.isDirty}>{form.processing ? 'Saving…' : 'Save settings'}</button></div></div>

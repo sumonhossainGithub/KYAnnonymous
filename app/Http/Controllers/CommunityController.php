@@ -276,16 +276,15 @@ class CommunityController extends Controller
 
     protected function loadMessagesForRoom(int $roomId, bool $adminStealth)
     {
-        // Ephemeral chat cleanup: guest messages older than 15 minutes are purged so chat history will not remain for guests
-        ChatMessage::where('is_guest', true)
-            ->where('created_at', '<', now()->subMinutes(SiteSettings::get('guest_retention_minutes')))
-            ->delete();
+        // Public chat retention: all messages (logged in or guest) remain available for 30 days
+        ChatMessage::where('created_at', '<', now()->subDays(30))->delete();
 
         return ChatMessage::with(['sender', 'subChats' => fn ($query) => $query->orderBy('id'), 'subChats.sender'])
             ->where('chat_room_id', $roomId)
             ->whereNull('parent_id')
+            ->where('created_at', '>=', now()->subDays(30))
             ->orderBy('id', 'desc')
-            ->take(SiteSettings::get('history_limit'))
+            ->take(SiteSettings::get('history_limit', 500))
             ->get()
             ->reverse()
             ->values()
@@ -296,7 +295,7 @@ class CommunityController extends Controller
                         'public_id' => $sub->public_id,
                         'parent_public_id' => $m->public_id,
                         'message' => $sub->message,
-                        'created_at' => $sub->created_at->format('H:i'),
+                        'created_at' => $sub->created_at->isToday() ? $sub->created_at->format('H:i') : $sub->created_at->format('M j, H:i'),
                         'is_ghost' => (bool) ($sub->is_ghost ?? false),
                         'is_guest' => (bool) ($sub->is_guest ?? false),
                         'sender' => $this->formatSender($sub, $adminStealth),
@@ -306,7 +305,7 @@ class CommunityController extends Controller
                 return [
                     'public_id' => $m->public_id,
                     'message' => $m->message,
-                    'created_at' => $m->created_at->format('H:i'),
+                    'created_at' => $m->created_at->isToday() ? $m->created_at->format('H:i') : $m->created_at->format('M j, H:i'),
                     'is_ghost' => (bool) ($m->is_ghost ?? false),
                     'is_guest' => (bool) ($m->is_guest ?? false),
                     'sender' => $sender,
@@ -400,7 +399,7 @@ class CommunityController extends Controller
             'message' => trim(strip_tags($request->message)),
             'is_ghost' => $isGhost,
             'is_guest' => $isGuest,
-            'is_ephemeral' => $isGuest,
+            'is_ephemeral' => false,
             'alias_name' => $aliasName,
         ]);
 

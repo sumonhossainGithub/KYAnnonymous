@@ -23,7 +23,7 @@ class SiteSettings
             'member_rooms_enabled' => true, 'anonymous_enabled' => true, 'replies_enabled' => true,
             'posts_enabled' => true, 'comments_enabled' => true,
             'message_max_length' => 1000, 'message_rate_limit' => 30, 'guest_rate_limit' => 20,
-            'poll_interval' => 2500, 'history_limit' => 50, 'guest_retention_minutes' => 15,
+            'poll_interval' => 2500, 'history_limit' => 500, 'guest_retention_minutes' => 43200,
         ];
     }
 
@@ -33,9 +33,9 @@ class SiteSettings
         return array_replace(static::defaults(), array_intersect_key($stored, static::defaults()));
     }
 
-    public static function get(string $key): mixed
+    public static function get(string $key, mixed $default = null): mixed
     {
-        return static::all()[$key] ?? null;
+        return static::all()[$key] ?? $default;
     }
 
     public static function rules(): array
@@ -56,7 +56,7 @@ class SiteSettings
         $rules['density'] = ['required', 'in:comfortable,compact'];
         $rules['homepage_layout'] = ['required', 'in:chat,feed'];
         $rules['default_room_slug'] = ['required', 'string', 'exists:chat_rooms,slug'];
-        foreach (['corner_radius' => [0, 24], 'message_max_length' => [50, 2000], 'message_rate_limit' => [1, 60], 'guest_rate_limit' => [1, 30], 'poll_interval' => [1000, 10000], 'history_limit' => [10, 100], 'guest_retention_minutes' => [1, 1440]] as $key => [$min, $max]) {
+        foreach (['corner_radius' => [0, 24], 'message_max_length' => [50, 2000], 'message_rate_limit' => [1, 60], 'guest_rate_limit' => [1, 30], 'poll_interval' => [1000, 10000], 'history_limit' => [10, 2000], 'guest_retention_minutes' => [1, 43200]] as $key => [$min, $max]) {
             $rules[$key] = ['required', 'integer', "min:$min", "max:$max"];
         }
         return $rules;
