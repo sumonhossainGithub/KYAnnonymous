@@ -16,7 +16,9 @@ import {
   Lock,
   CornerDownRight,
   X,
+  Smile,
 } from 'lucide-react';
+import EmojiPicker from '@/components/EmojiPicker';
 
 interface Props {
   room: ChatRoomSummary;
@@ -50,6 +52,27 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
       return new Set();
     }
   });
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const messageInputRef = useRef<HTMLInputElement>(null);
+
+  const insertEmoji = (emoji: string) => {
+    const input = messageInputRef.current;
+    if (!input) {
+      form.setData('message', form.data.message + emoji);
+      return;
+    }
+    const start = input.selectionStart ?? form.data.message.length;
+    const end = input.selectionEnd ?? form.data.message.length;
+    const text = form.data.message;
+    const next = text.slice(0, start) + emoji + text.slice(end);
+    form.setData('message', next);
+    setTimeout(() => {
+      input.focus();
+      const pos = start + emoji.length;
+      input.setSelectionRange(pos, pos);
+    }, 0);
+  };
 
   const unlockSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -213,17 +236,19 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
             aria-live="polite"
             aria-relevant="additions"
           >
-            <div className="conversation-start">
-              <div className="empty-orbit">
-                <Radio size={24} className="text-cyan-400" />
+            {messages.length === 0 && (
+              <div className="conversation-start">
+                <div className="empty-orbit">
+                  <Radio size={24} className="text-cyan-400" />
+                </div>
+                <h2 className="font-mono text-sm tracking-wider uppercase text-slate-200">
+                  Welcome to: {room.name}
+                </h2>
+                <p className="font-sans text-xs text-slate-400">
+                  Chat freely and anonymously with others in this room.
+                </p>
               </div>
-              <h2 className="font-mono text-sm tracking-wider uppercase text-slate-200">
-                Welcome to: {room.name}
-              </h2>
-              <p className="font-sans text-xs text-slate-400">
-                Chat freely and anonymously with others in this room.
-              </p>
-            </div>
+            )}
 
             {messages.filter(message => !searchTerm || [message.message, message.sender.display_name, ...(message.sub_chats || []).map(reply => reply.message)].some(text => text.toLowerCase().includes(searchTerm.toLowerCase()))).map((message) => {
               const own = Boolean(message.is_own || mySentIds.has(message.public_id) || (auth.user && message.sender.public_id === auth.user?.public_id));
@@ -408,21 +433,66 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                 <span>{live.policy.reason}</span>
               </div>
             ) : (
-              <form onSubmit={send}>
-                <input
-                  aria-label="Your message"
-                  required
-                  maxLength={live.policy.message_max_length} readOnly={live.sending}
-                  autoComplete="off"
-                  placeholder={
-                    form.data.is_ghost
-                      ? '[ANONYMOUS DISGUISE ACTIVE] Type a secret message...'
-                      : 'Type your message...'
-                  }
-                  value={form.data.message}
-                  onChange={(e) => form.setData('message', e.target.value)}
-                  className="font-sans"
-                />
+              <div>
+                {live.typing && live.typing.length > 0 && (
+                  <div className="typing-indicator flex items-center gap-2 px-3 py-1 mb-2 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 font-mono text-[11px] w-fit shadow-[0_2px_12px_rgba(0,0,0,0.4)]">
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
+                    <span>
+                      {live.typing.length === 1
+                        ? `${live.typing[0]} is typing…`
+                        : `${live.typing.join(', ')} are typing…`}
+                    </span>
+                  </div>
+                )}
+
+                <form onSubmit={send}>
+                  <input
+                    ref={messageInputRef}
+                    aria-label="Your message"
+                    required
+                    maxLength={live.policy.message_max_length} readOnly={live.sending}
+                    autoComplete="off"
+                    placeholder={
+                      form.data.is_ghost
+                        ? '[ANONYMOUS DISGUISE ACTIVE] Type a secret message...'
+                        : 'Type your message...'
+                    }
+                    value={form.data.message}
+                    onChange={(e) => {
+                      form.setData('message', e.target.value);
+                      if (e.target.value.trim()) {
+                        live.sendTyping(form.data.is_ghost);
+                      }
+                    }}
+                    className="font-sans"
+                  />
+
+                {/* Emoji Button & Picker */}
+                <div className="relative flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker((prev) => !prev)}
+                    className={`icon-button ${
+                      showEmojiPicker
+                        ? 'bg-emerald-950 border border-emerald-400 text-emerald-300'
+                        : 'text-slate-400 hover:text-emerald-300'
+                    }`}
+                    title="Insert emoji"
+                    aria-label="Choose emoji"
+                  >
+                    <Smile size={17} />
+                  </button>
+                  {showEmojiPicker && (
+                    <EmojiPicker
+                      onSelect={insertEmoji}
+                      onClose={() => setShowEmojiPicker(false)}
+                    />
+                  )}
+                </div>
 
                 <button
                   type="button"
@@ -450,7 +520,8 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                   <span>{live.sending ? 'Sending…' : 'Send'}</span>
                 </button>
               </form>
-            )}
+            </div>
+          )}
 
             {form.errors.message && (
               <p className="field-error font-mono text-xs" role="alert">

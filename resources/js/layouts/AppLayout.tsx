@@ -113,7 +113,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div style={siteThemeStyle(site)} className={`cosmos-shell site-theme density-${site.density} ${paused || !site.animations_enabled ? 'is-still' : ''}`}>
       <Head title={`${current?.label || 'Community'} · ${site.site_name}`} />
-      {site.animations_enabled && <Starfield paused={paused} />}
+      <Starfield paused={paused || !site.animations_enabled} />
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>

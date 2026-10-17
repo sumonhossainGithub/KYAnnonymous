@@ -9,19 +9,20 @@ interface Policy {
   message_max_length: number;
   poll_interval: number;
 }
-interface Snapshot { messages: ChatMessageItem[]; policy: Policy }
+interface Snapshot { messages: ChatMessageItem[]; policy: Policy; typing?: string[] }
 
 export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], site: SiteSettings, canSend: boolean) {
   const initialPolicy: Policy = { can_send: canSend, reason: canSend ? '' : 'Chat is paused or requires sign-in.', ...site };
-  const [state, setState] = useState<{ slug: string; snapshot: Snapshot }>({ slug, snapshot: { messages: initialMessages, policy: initialPolicy } });
+  const [state, setState] = useState<{ slug: string; snapshot: Snapshot }>({ slug, snapshot: { messages: initialMessages, policy: initialPolicy, typing: [] } });
   const [connected, setConnected] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const busy = useRef(false);
   const activeRead = useRef<AbortController | null>(null);
   const activeWrite = useRef<AbortController | null>(null);
+  const lastTypingPing = useRef(0);
   const currentSlug = useRef(slug);
-  const snapshot = state.slug === slug ? state.snapshot : { messages: initialMessages, policy: initialPolicy };
+  const snapshot = state.slug === slug ? state.snapshot : { messages: initialMessages, policy: initialPolicy, typing: [] };
 
   const accept = useCallback((value: Snapshot) => {
     if (currentSlug.current !== slug) return;
@@ -105,7 +106,27 @@ export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], si
     }
   };
 
-  return { ...snapshot, connected, sending, error, refresh,
+  const sendTyping = useCallback(async (isGhost = false) => {
+    const now = Date.now();
+    if (now - lastTypingPing.current < 2500) return;
+    lastTypingPing.current = now;
+    try {
+      const token = document.cookie.split('; ').find(cookie => cookie.startsWith('XSRF-TOKEN='))?.slice('XSRF-TOKEN='.length);
+      await fetch(`/chat/${encodeURIComponent(slug)}/typing`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': token ? decodeURIComponent(token) : '',
+        },
+        body: JSON.stringify({ is_ghost: isGhost }),
+      });
+    } catch {}
+  }, [slug]);
+
+  return { ...snapshot, typing: snapshot.typing || [], connected, sending, error, refresh, sendTyping,
     send: (data: object) => write(`/chat/${encodeURIComponent(slug)}/message`, 'POST', data),
     remove: (publicId: string) => write(`/admin/chat/${encodeURIComponent(slug)}/messages/${publicId}`, 'DELETE'),
   };

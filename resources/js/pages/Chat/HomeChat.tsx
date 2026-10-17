@@ -17,7 +17,9 @@ import {
   X,
   ArrowRight,
   MessageCircle,
+  Smile,
 } from 'lucide-react';
+import EmojiPicker from '@/components/EmojiPicker';
 
 interface Props {
   room: ChatRoomSummary;
@@ -43,6 +45,13 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   // Track which message has its sub-chat open
   const [activeSubChatId, setActiveSubChatId] = useState<string | null>(null);
   const [touchedMessageId, setTouchedMessageId] = useState<string | null>(null);
+  const [showGhostBanner, setShowGhostBanner] = useState(() => {
+    try {
+      return localStorage.getItem('hide_ghost_banner') !== '1';
+    } catch {
+      return true;
+    }
+  });
   const [mySentIds, setMySentIds] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem('ky_my_sent_messages');
@@ -51,6 +60,27 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
       return new Set();
     }
   });
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const messageInputRef = useRef<HTMLInputElement>(null);
+
+  const insertEmoji = (emoji: string) => {
+    const input = messageInputRef.current;
+    if (!input) {
+      form.setData('message', form.data.message + emoji);
+      return;
+    }
+    const start = input.selectionStart ?? form.data.message.length;
+    const end = input.selectionEnd ?? form.data.message.length;
+    const text = form.data.message;
+    const next = text.slice(0, start) + emoji + text.slice(end);
+    form.setData('message', next);
+    setTimeout(() => {
+      input.focus();
+      const pos = start + emoji.length;
+      input.setSelectionRange(pos, pos);
+    }, 0);
+  };
 
 
   const latest = messages.at(-1)?.public_id;
@@ -129,17 +159,19 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             aria-live="polite"
             aria-relevant="additions"
           >
-            <div className="conversation-start">
-              <div className="empty-orbit">
-                <Radio size={24} className="text-cyan-400" />
+            {messages.length === 0 && (
+              <div className="conversation-start">
+                <div className="empty-orbit">
+                  <Radio size={24} className="text-cyan-400" />
+                </div>
+                <h3 className="font-mono text-sm tracking-wider uppercase text-slate-200">
+                  Public Anonymous Chatbox
+                </h3>
+                <p className="font-sans text-xs text-slate-400">
+                  Welcome! Everyone can read messages. Start a conversation or reply in any message's sub-chat.
+                </p>
               </div>
-              <h3 className="font-mono text-sm tracking-wider uppercase text-slate-200">
-                Public Anonymous Chatbox
-              </h3>
-              <p className="font-sans text-xs text-slate-400">
-                Welcome! Everyone can read messages. Start a conversation or reply in any message's sub-chat.
-              </p>
-            </div>
+            )}
 
             {messages.filter(message => !searchTerm || [message.message, message.sender.display_name, ...(message.sub_chats || []).map(reply => reply.message)].some(text => text.toLowerCase().includes(searchTerm.toLowerCase()))).map((message) => {
               const own = Boolean(message.is_own || mySentIds.has(message.public_id) || (auth.user && message.sender.public_id === auth.user?.public_id));
@@ -331,24 +363,54 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
               </div>
             ) : (
               <div>
-                {!auth.user && (
-                  <div className="mb-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-[11px] font-mono text-cyan-200">
-                    <div className="flex items-center gap-2">
+                {!auth.user && showGhostBanner && (
+                  <div className="mb-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-[11px] font-mono text-cyan-200">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Ghost size={14} className="text-cyan-400 animate-pulse flex-shrink-0" />
-                      <span>
+                      <span className="truncate sm:overflow-visible sm:whitespace-normal">
                         <strong>Ghost Chat Active:</strong> You can chat freely without logging in! (Note: Ghost chat history will not remain).
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
-                      <Link href="/register" className="text-cyan-400 hover:text-cyan-300 font-semibold underline">
+                    <div className="flex items-center gap-2.5 flex-shrink-0">
+                      <Link href="/register" className="text-cyan-400 hover:text-cyan-300 font-semibold underline text-xs">
                         Join to Save History & Add Photo
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowGhostBanner(false);
+                          try {
+                            localStorage.setItem('hide_ghost_banner', '1');
+                          } catch {}
+                        }}
+                        className="p-1 rounded-md text-cyan-400/80 hover:text-white hover:bg-cyan-800/60 transition-colors"
+                        title="Close"
+                        aria-label="Close"
+                      >
+                        <X size={15} />
+                      </button>
                     </div>
+                  </div>
+                )}
+
+                {live.typing && live.typing.length > 0 && (
+                  <div className="typing-indicator flex items-center gap-2 px-3 py-1 mb-2 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 font-mono text-[11px] w-fit shadow-[0_2px_12px_rgba(0,0,0,0.4)]">
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
+                    <span>
+                      {live.typing.length === 1
+                        ? `${live.typing[0]} is typing…`
+                        : `${live.typing.join(', ')} are typing…`}
+                    </span>
                   </div>
                 )}
 
                 <form onSubmit={send}>
                   <input
+                    ref={messageInputRef}
                     aria-label="Your public chat message"
                     required
                     maxLength={live.policy.message_max_length} readOnly={live.sending}
@@ -356,14 +418,42 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                     placeholder={
                       auth.user
                         ? form.data.is_ghost
-                          ? '[ANONYMOUS DISGUISE ACTIVE] Type a secret message in public chat...'
+                          ? '[ANONYMOUS DISGUISE ACTIVE] Type a secret message...'
                           : 'Message public chat... (press Enter to send)'
-                        : 'Chat freely as Ghost... (Chat history will not remain · Enter to send)'
+                        : 'Type your message... (press Enter to send)'
                     }
                     value={form.data.message}
-                    onChange={(e) => form.setData('message', e.target.value)}
+                    onChange={(e) => {
+                      form.setData('message', e.target.value);
+                      if (e.target.value.trim()) {
+                        live.sendTyping(form.data.is_ghost);
+                      }
+                    }}
                     className="font-sans"
                   />
+
+                  {/* Emoji Button & Picker */}
+                  <div className="relative flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowEmojiPicker((prev) => !prev)}
+                      className={`icon-button ${
+                        showEmojiPicker
+                          ? 'bg-emerald-950 border border-emerald-400 text-emerald-300'
+                          : 'text-slate-400 hover:text-emerald-300'
+                      }`}
+                      title="Insert emoji"
+                      aria-label="Choose emoji"
+                    >
+                      <Smile size={17} />
+                    </button>
+                    {showEmojiPicker && (
+                      <EmojiPicker
+                        onSelect={insertEmoji}
+                        onClose={() => setShowEmojiPicker(false)}
+                      />
+                    )}
+                  </div>
 
                   {auth.user && (
                     <button
@@ -428,7 +518,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                     <Ghost size={10} />
                     <span>GHOST</span>
                   </span>
-                  <span>Ephemeral Ghost Session · Chat history will not remain</span>
+                  <span>Ghost Mode · 30-Day Public Retention</span>
                 </span>
               )}
               <span>{form.data.message.length}/{live.policy.message_max_length}</span>

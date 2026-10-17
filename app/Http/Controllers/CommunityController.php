@@ -418,8 +418,24 @@ class CommunityController extends Controller
     {
         $site = SiteSettings::all();
         $locked = \App\Models\AppSetting::isTrue('emergency_lockdown') && !$request->user()?->isSuperAdmin();
+
+        $typingKey = "chat_typing_{$room->id}";
+        $now = time();
+        $myId = $request->user() ? "u_{$request->user()->id}" : 'g_' . substr((string) session()->getId(), 0, 8);
+        $rawTyping = \Illuminate\Support\Facades\Cache::get($typingKey, []);
+        $typingList = [];
+        if (is_array($rawTyping)) {
+            foreach ($rawTyping as $item) {
+                if (is_array($item) && ($now - ($item['time'] ?? 0)) < 4 && ($item['id'] ?? '') !== $myId) {
+                    $typingList[] = $item['name'] ?? 'Someone';
+                }
+            }
+        }
+        $typingList = array_values(array_unique($typingList));
+
         return [
             'messages' => $this->loadMessagesForRoom($room->id, \App\Models\AppSetting::isTrue('admin_stealth_mode'), $request->user()?->id),
+            'typing' => $typingList,
             'policy' => [
                 'can_send' => $site['chat_enabled'] && !$locked && ($request->user() !== null || $site['guest_chat_enabled']),
                 'reason' => !$site['chat_enabled'] || $locked ? 'Chat is temporarily paused by admin.' : (!$request->user() && !$site['guest_chat_enabled'] ? 'Sign in to send messages.' : ''),
@@ -427,6 +443,34 @@ class CommunityController extends Controller
                 'message_max_length' => $site['message_max_length'], 'poll_interval' => $site['poll_interval'],
             ],
         ];
+    }
+
+    public function recordTyping(Request $request, string $slug)
+    {
+        $room = ChatRoom::where('slug', $slug)->first();
+        if (!$room) return response()->json(['status' => 'ok']);
+
+        $user = $request->user();
+        $isGhost = $request->boolean('is_ghost', false);
+        $name = (!$user || $isGhost) ? 'Someone' : $user->username;
+        $key = "chat_typing_{$room->id}";
+
+        $current = \Illuminate\Support\Facades\Cache::get($key, []);
+        $id = $user ? "u_{$user->id}" : 'g_' . substr((string) session()->getId(), 0, 8);
+
+        $now = time();
+        $active = [];
+        if (is_array($current)) {
+            foreach ($current as $item) {
+                if (is_array($item) && ($now - ($item['time'] ?? 0)) < 4 && ($item['id'] ?? '') !== $id) {
+                    $active[] = $item;
+                }
+            }
+        }
+        $active[] = ['id' => $id, 'name' => $name, 'time' => $now];
+
+        \Illuminate\Support\Facades\Cache::put($key, $active, 8);
+        return response()->json(['status' => 'ok']);
     }
 
     public function chatMessages(Request $request, string $slug)

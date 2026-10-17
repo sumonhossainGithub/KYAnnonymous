@@ -18,6 +18,7 @@ Route::get('/chat', [CommunityController::class, 'chatIndex'])->name('chat.index
 Route::get('/chat/{slug}/messages', [CommunityController::class, 'chatMessages'])->middleware('not_banned');
 Route::get('/chat/{slug}', [CommunityController::class, 'chatRoom'])->name('chat.room')->middleware('not_banned');
 Route::post('/chat/{slug}/message', [CommunityController::class, 'sendChatMessage'])->name('chat.message.send')->middleware('not_banned');
+Route::post('/chat/{slug}/typing', [CommunityController::class, 'recordTyping'])->middleware('not_banned');
 Route::post('/chat/{slug}/unlock', [CommunityController::class, 'unlockChatRoom'])->name('chat.room.unlock')->middleware('not_banned');
 
 // Guest Authentication Routes

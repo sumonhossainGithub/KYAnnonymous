@@ -10,8 +10,8 @@ class SiteSettings
     {
         return [
             'site_name' => 'KYAnonymous', 'tagline' => '', 'logo_text' => '👻',
-            'primary_color' => '#0ea5e9', 'background_color' => '#0f172a', 'surface_color' => '#1e293b',
-            'corner_radius' => 12, 'font_family' => 'system', 'density' => 'comfortable', 'animations_enabled' => false,
+            'primary_color' => '#10b981', 'background_color' => '#030c0e', 'surface_color' => '#081a17',
+            'corner_radius' => 12, 'font_family' => 'system', 'density' => 'comfortable', 'animations_enabled' => true,
             'homepage_layout' => 'chat', 'default_room_slug' => 'common-orbit',
             'homepage_title' => '',
             'homepage_description' => '',
