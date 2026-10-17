@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useForm, Link, usePage } from '@inertiajs/react';
 import type { SharedProps } from '@/types';
 import AppLayout from '@/layouts/AppLayout';
-import { ArrowLeft, Send, Ghost, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Send, Ghost, ShieldCheck, AlertTriangle, Image as ImageIcon, X } from 'lucide-react';
 
 interface Props {
   organizations: { public_id: string; name: string }[];
@@ -11,16 +11,60 @@ interface Props {
 
 export default function CreatePost({ organizations, emergencyLockdown }: Props) {
   const { site, auth } = usePage<SharedProps>().props;
-  const { data, setData, post, processing, errors } = useForm({
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  const { data, setData, post, processing, errors } = useForm<{
+    title: string;
+    body: string;
+    organization_public_id: string;
+    is_ghost: boolean;
+    image: File | null;
+  }>({
     title: '',
     body: '',
     organization_public_id: '',
     is_ghost: false,
+    image: null,
   });
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setFileError('Please select a valid image file (JPG, PNG, WebP, GIF, SVG).');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setFileError('Image size must be less than 10 MB.');
+      return;
+    }
+
+    setData('image', file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const removeImage = () => {
+    setData('image', null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview(null);
+    setFileError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    post('/posts');
+    post('/posts', {
+      forceFormData: true,
+    });
   };
 
   return (
@@ -102,6 +146,61 @@ export default function CreatePost({ organizations, emergencyLockdown }: Props) 
                 className="w-full px-3 py-2.5 bg-slate-900 border border-cyan-950 rounded-xl text-slate-100 focus:outline-none focus:border-cyan-400 text-sm placeholder-slate-600 font-sans"
               />
               {errors.body && <p className="text-rose-400 text-xs font-mono mt-1">{errors.body}</p>}
+            </div>
+
+            {/* Post Picture Upload */}
+            <div className="p-4 bg-slate-900/60 border border-slate-800/80 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-mono font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-cyan-400" />
+                  <span>Attach Picture (Optional &lt; 10 MB)</span>
+                </label>
+                {imagePreview && (
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 font-mono"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Remove</span>
+                  </button>
+                )}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                onChange={handleImageChange}
+                className="hidden"
+                id="post-image-file-input"
+              />
+
+              {!imagePreview ? (
+                <label
+                  htmlFor="post-image-file-input"
+                  className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-cyan-500/60 rounded-xl p-5 cursor-pointer bg-slate-950/40 hover:bg-slate-900/60 transition group"
+                >
+                  <ImageIcon className="w-8 h-8 text-slate-500 group-hover:text-cyan-400 transition mb-2" />
+                  <span className="text-xs font-mono text-slate-300 group-hover:text-cyan-300">
+                    Click to select an image from your device
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-500 mt-1">
+                    Supports JPG, PNG, WEBP, GIF, SVG up to 10 MB
+                  </span>
+                </label>
+              ) : (
+                <div className="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-950 max-h-64 flex items-center justify-center p-2">
+                  <img
+                    src={imagePreview}
+                    alt="Selected preview"
+                    className="max-h-60 w-auto object-contain rounded-lg"
+                  />
+                </div>
+              )}
+
+              {fileError && <p className="text-rose-400 text-xs font-mono mt-1.5">{fileError}</p>}
+              {errors.image && <p className="text-rose-400 text-xs font-mono mt-1.5">{errors.image}</p>}
             </div>
 
             {/* Ghost Mode Burner Alias Toggle */}

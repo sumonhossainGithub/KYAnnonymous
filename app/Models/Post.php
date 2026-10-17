@@ -22,6 +22,7 @@ class Post extends Model
         'is_ghost',
         'alias_name',
         'edited_at',
+        'image_url',
     ];
 
     protected $hidden = ['id', 'user_id', 'organization_id'];

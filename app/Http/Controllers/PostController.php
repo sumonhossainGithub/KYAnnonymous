@@ -12,6 +12,7 @@ use App\Support\Anonymity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class PostController extends Controller
@@ -85,6 +86,7 @@ class PostController extends Controller
                 'public_id' => $post->public_id,
                 'title' => $post->title,
                 'body' => $post->body,
+                'image_url' => $post->image_url,
                 'upvotes_count' => $post->upvotes_count,
                 'downvotes_count' => $post->downvotes_count,
                 'score' => $post->score,
@@ -151,6 +153,7 @@ class PostController extends Controller
             'body' => ['required', 'string', 'min:3', 'max:10000'],
             'organization_public_id' => ['nullable', 'string', 'exists:organizations,public_id'],
             'is_ghost' => ['nullable', 'boolean'],
+            'image' => ['nullable', 'file', 'image', 'max:10240'],
         ]);
 
         $orgId = null;
@@ -168,11 +171,27 @@ class PostController extends Controller
             $aliasName = 'Ghost-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
         }
 
+        $imageUrl = null;
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            $uploadedFile = $request->file('image');
+            $extension = strtolower($uploadedFile->getClientOriginalExtension());
+            if (in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'])) {
+                $uploadDir = public_path('uploads/posts');
+                if (!\Illuminate\Support\Facades\File::isDirectory($uploadDir)) {
+                    \Illuminate\Support\Facades\File::makeDirectory($uploadDir, 0755, true);
+                }
+                $savedName = 'post_' . time() . '_' . Str::random(10) . '.' . $extension;
+                $uploadedFile->move($uploadDir, $savedName);
+                $imageUrl = '/uploads/posts/' . $savedName;
+            }
+        }
+
         $post = Post::create([
             'user_id' => $request->user()->id,
             'organization_id' => $orgId,
             'title' => trim(strip_tags($request->title)),
             'body' => trim(strip_tags($request->body)), // Plaintext only (§42)
+            'image_url' => $imageUrl,
             'status' => 'ACTIVE',
             'is_ghost' => $isGhost,
             'alias_name' => $aliasName,
@@ -235,6 +254,7 @@ class PostController extends Controller
                 'public_id' => $post->public_id,
                 'title' => $post->title,
                 'body' => $post->body,
+                'image_url' => $post->image_url,
                 'upvotes_count' => $post->upvotes_count,
                 'downvotes_count' => $post->downvotes_count,
                 'score' => $post->score,

@@ -11,6 +11,7 @@ export interface Post {
   public_id: string;
   title: string;
   body: string;
+  image_url?: string | null;
   upvotes_count: number;
   downvotes_count: number;
   score: number;

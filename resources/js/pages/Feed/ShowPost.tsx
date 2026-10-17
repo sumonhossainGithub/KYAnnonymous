@@ -160,7 +160,19 @@ export default function ShowPost({ post, comments }: Props) {
           </div>
 
           <h1 className="text-xl font-bold text-slate-100 mb-3">{post.title}</h1>
-          <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line mb-6 font-sans">{post.body}</p>
+          <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line mb-4 font-sans">{post.body}</p>
+
+          {post.image_url && (
+            <div className="mb-6 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 flex items-center justify-center p-1 sm:p-2">
+              <a href={post.image_url} target="_blank" rel="noopener noreferrer" className="block w-full text-center">
+                <img
+                  src={post.image_url}
+                  alt={post.title}
+                  className="max-h-[520px] mx-auto object-contain rounded-xl hover:opacity-95 transition"
+                />
+              </a>
+            </div>
+          )}
 
           {/* Action Row */}
           <div className="flex flex-wrap items-center gap-3 border-t border-cyan-950/40 pt-4 font-mono">

@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { Maximize2, Minimize2, ArrowUpRight, Radio } from 'lucide-react';
 import type { ChatRoomSummary } from '@/types';
 
@@ -101,7 +101,16 @@ export default function UniverseMap({ rooms, compact = false }: { rooms: ChatRoo
 
         {/* Peripheral Chat Nodes */}
         {rooms.slice(0, 6).map((room, i) => (
-          <a key={room.public_id} href={`/chat/${room.slug}`} className="room-node group" aria-label={`Connect to ${room.name}`}>
+          <g
+            key={room.public_id}
+            onClick={() => router.visit(`/chat/${room.slug}`)}
+            onKeyDown={(e) => { if (e.key === 'Enter') router.visit(`/chat/${room.slug}`); }}
+            className="room-node group"
+            role="link"
+            tabIndex={0}
+            aria-label={`Connect to ${room.name}`}
+            style={{ cursor: 'pointer' }}
+          >
             <circle
               cx={positions[i][0]}
               cy={positions[i][1]}
@@ -132,7 +141,7 @@ export default function UniverseMap({ rooms, compact = false }: { rooms: ChatRoo
             >
               {room.name.length > 20 ? `${room.name.slice(0, 18)}…` : room.name}
             </text>
-          </a>
+          </g>
         ))}
 
         <text x="320" y="278" textAnchor="middle" fill="#38bdf8" fontSize="8" fontFamily="monospace" letterSpacing="3">

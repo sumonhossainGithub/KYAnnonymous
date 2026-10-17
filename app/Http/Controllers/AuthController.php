@@ -29,21 +29,21 @@ class AuthController extends Controller
         $ipHash = Anonymity::hashIp($request->ip());
         $limiterKey = 'register:' . $ipHash;
 
-        if (RateLimiter::tooManyAttempts($limiterKey, 5)) {
+        if (RateLimiter::tooManyAttempts($limiterKey, 30)) {
             SecurityEvent::create([
                 'event_type' => 'REGISTRATION_RATE_LIMIT',
                 'pseudonymous_digest' => $ipHash,
             ]);
             return back()->withErrors(['username' => 'Too many registration attempts. Please wait before trying again.']);
         }
-        RateLimiter::hit($limiterKey, 3600); // 5 per hour
+        RateLimiter::hit($limiterKey, 3600);
 
         $request->validate([
-            'display_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[a-zA-Z0-9 _\-\p{L}]+$/u'],
+            'display_name' => ['required', 'string', 'min:2', 'max:50'],
             'username' => ['required', 'string', 'min:3', 'max:30', 'regex:/^[a-zA-Z0-9_]+$/'],
             'gender' => ['required', 'in:Male,Female'],
             'show_gender' => ['boolean'],
-            'password' => ['required', 'string', Password::min(8)],
+            'password' => ['required', 'string', 'min:6'],
         ]);
 
         $normalized = Anonymity::normalizeUsername($request->username);
@@ -63,9 +63,8 @@ class AuthController extends Controller
             'status' => 'ACTIVE',
         ]);
 
-        $rawRecoveryCode = null;
         try {
-            // Generate one-time recovery code (§10)
+            // Generate one-time recovery code
             $rawRecoveryCode = Anonymity::generateRecoveryCode();
             PasswordRecovery::create([
                 'user_id' => $user->id,
@@ -73,18 +72,15 @@ class AuthController extends Controller
                 'attempts' => 0,
             ]);
         } catch (\Throwable $e) {
-            $rawRecoveryCode = null;
+            // Recovery code creation is best-effort
         }
+
+        RateLimiter::clear($limiterKey);
 
         Auth::login($user);
         $request->session()->regenerate();
 
-        if ($rawRecoveryCode) {
-            // Flash recovery code to session ONCE.
-            return redirect()->route('recovery.display')->with('recovery_code', $rawRecoveryCode);
-        }
-
-        return redirect()->route('home');
+        return redirect('/');
     }
 
     public function showRecoveryDisplay(Request $request)
@@ -159,7 +155,7 @@ class AuthController extends Controller
 
         // Admin always goes to admin dashboard (§user request)
         if ($user->isSuperAdmin() || $user->role === 'SUPER_ADMIN') {
-            return Inertia::location('/admin/dashboard');
+            return redirect('/admin/dashboard');
         }
 
         $intended = $request->session()->pull('url.intended');
@@ -172,7 +168,7 @@ class AuthController extends Controller
             }
         }
 
-        return Inertia::location($targetUrl);
+        return redirect($targetUrl);
     }
 
     public function logout(Request $request)
@@ -181,7 +177,7 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return Inertia::location('/');
+        return redirect('/');
     }
 
     public function showRecovery()

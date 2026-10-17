@@ -176,6 +176,16 @@ export default function Index({
                       <p className="text-xs sm:text-sm text-slate-300 mt-1.5 leading-relaxed line-clamp-3 font-sans">
                         {post.body}
                       </p>
+                      {post.image_url && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-slate-800/80 bg-slate-950/70 max-h-72 flex items-center justify-center">
+                          <img
+                            src={post.image_url}
+                            alt={post.title}
+                            className="max-h-72 w-full object-cover rounded-lg hover:opacity-95 transition"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
                     </Link>
 
                     {/* Action Bar */}
