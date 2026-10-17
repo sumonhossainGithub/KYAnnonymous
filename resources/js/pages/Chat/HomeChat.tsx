@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import EmojiPicker from '@/components/EmojiPicker';
 import GardenButterflyOverlay, { type GardenButterflyRef } from '@/components/GardenButterflyOverlay';
+import ChatFlowerOverlay, { type ChatFlowerRef } from '@/components/ChatFlowerOverlay';
 
 interface Props {
   room: ChatRoomSummary;
@@ -121,12 +122,14 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   };
 
   const butterflyRef = useRef<GardenButterflyRef>(null);
+  const flowerRef = useRef<ChatFlowerRef>(null);
   const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
 
   const handleButterflyReact = async (msg: ChatMessageItem, targetEl: HTMLElement) => {
     const rect = targetEl.getBoundingClientRect();
     butterflyRef.current?.flyTo(rect);
+    flowerRef.current?.bloomAt(rect.left + rect.width / 2, rect.top);
     await live.reactButterfly(msg.public_id);
   };
 
@@ -220,6 +223,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
       {/* Main Public Chat Layout */}
       <div className="chat-layout">
         <section className="conversation-panel" aria-label="Public Chatbox">
+          <ChatFlowerOverlay ref={flowerRef} />
           <ChatTools search={searchTerm} onSearch={setSearchTerm} autoScroll={autoScroll} onAutoScroll={setAutoScroll} onRefresh={() => void live.refresh()} connected={connected} />
           <header className="conversation-header">
             <span className="room-symbol">

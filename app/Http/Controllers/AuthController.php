@@ -79,6 +79,7 @@ class AuthController extends Controller
 
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->forget('url.intended');
 
         return redirect('/');
     }
@@ -153,22 +154,14 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
+        $request->session()->forget('url.intended');
+
         // Admin always goes to admin dashboard (§user request)
         if ($user->isSuperAdmin() || $user->role === 'SUPER_ADMIN') {
             return redirect('/admin/dashboard');
         }
 
-        $intended = $request->session()->pull('url.intended');
-        $targetUrl = '/';
-
-        if ($intended) {
-            $parsedPath = parse_url($intended, PHP_URL_PATH) ?: $intended;
-            if (!in_array($parsedPath, ['/login', '/register', '/recovery'])) {
-                $targetUrl = $intended;
-            }
-        }
-
-        return redirect($targetUrl);
+        return redirect('/');
     }
 
     public function logout(Request $request)
