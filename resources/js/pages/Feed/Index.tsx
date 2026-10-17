@@ -64,48 +64,16 @@ export default function Index({
           </div>
         )}
 
-        {/* Minimal Hero / Guest Greeting */}
-        {!auth.user ? (
-          <div className="p-6 sm:p-8 rounded-2xl bg-slate-950/90 border border-slate-800/80 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 backdrop-blur-md">
-            <div className="space-y-2 max-w-xl">
-              <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>100% PRIVATE · ZERO TRACKING</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100">
-                {site.homepage_title || 'Community Feed'}
-              </h1>
-              {site.homepage_description ? (
-                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed font-sans">
-                  {site.homepage_description}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/register"
-                className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl transition shadow-lg shadow-cyan-950/50"
-              >
-                Create Free Account
-              </Link>
-              <Link
-                href="/login"
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition"
-              >
-                Log In
-              </Link>
-            </div>
-          </div>
-        ) : (
-          /* Logged In Quick Composer */
-          <div className="p-4 sm:p-5 rounded-2xl bg-slate-950/90 border border-slate-800/80 shadow-lg flex items-center justify-between gap-4 backdrop-blur-md">
+        {/* Logged In Quick Composer */}
+        {auth.user && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800/80 shadow-lg flex items-center justify-between gap-4 backdrop-blur-md">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <span className="user-avatar flex-shrink-0">
                 {auth.user.display_name.slice(0, 1).toUpperCase()}
               </span>
               <Link
                 href="/posts/create"
-                className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 rounded-xl text-xs text-slate-400 hover:text-slate-300 transition text-left"
+                className="flex-1 px-4 py-2.5 bg-slate-850 hover:bg-slate-800 border border-slate-750 hover:border-slate-700 rounded-xl text-xs text-slate-400 hover:text-slate-300 transition text-left"
               >
                 What is on your mind? Share anonymously...
               </Link>
@@ -121,9 +89,9 @@ export default function Index({
         )}
 
         {/* Feed & Sidebar Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className={`grid grid-cols-1 ${(organizations.length > 0 || notices.length > 0) ? 'lg:grid-cols-12' : ''} gap-6 items-start`}>
           {/* Main Feed Column */}
-          <main className="lg:col-span-8 space-y-4">
+          <main className={`${(organizations.length > 0 || notices.length > 0) ? 'lg:col-span-8' : 'max-w-4xl mx-auto w-full'} space-y-4`}>
             {/* Filter Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-2 bg-slate-950/60 border border-slate-800/60 rounded-xl backdrop-blur-sm">
               <div className="flex items-center gap-1">
@@ -304,105 +272,53 @@ export default function Index({
             )}
           </main>
 
-          {/* Minimal Clean Sidebar */}
-          <aside className="lg:col-span-4 space-y-4">
-            {/* Live Chat Rooms Card */}
-            <div className="p-5 bg-slate-950/80 border border-slate-800/80 rounded-2xl shadow-lg backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-mono font-bold text-slate-200 flex items-center gap-2">
-                  <Radio size={14} className="text-cyan-400 animate-pulse" />
-                  <span>LIVE CHAT ROOMS</span>
-                </span>
-                <Link href="/chat" className="text-[11px] text-cyan-400 hover:underline font-mono">
-                  All Rooms →
-                </Link>
-              </div>
-              <div className="divide-y divide-slate-900">
-                {rooms.slice(0, 4).map((room) => (
-                  <Link
-                    key={room.public_id}
-                    href={`/chat/${room.slug}`}
-                    className="py-2.5 flex items-center justify-between group text-xs transition"
-                  >
-                    <div>
-                      <span className="font-semibold text-slate-200 group-hover:text-cyan-300 transition block">
-                        {room.name}
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        {room.messages_count || 0} messages
-                      </span>
-                    </div>
-                    <ArrowRight size={13} className="text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition" />
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Organizations / Topic Circles */}
-            {organizations.length > 0 && (
-              <div className="p-5 bg-slate-950/80 border border-slate-800/80 rounded-2xl shadow-lg backdrop-blur-sm">
-                <h3 className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider mb-3">
-                  Topic Circles
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {organizations.map((org) => (
-                    <Link
-                      key={org.public_id}
-                      href={filterUrl(currentSort, org.slug)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-mono transition ${
-                        org.slug === currentOrg
-                          ? 'bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold'
-                          : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
-                      }`}
-                    >
-                      {org.name}
-                    </Link>
-                  ))}
+          {/* Minimal Clean Sidebar (only shown if Topic Circles or Notices exist) */}
+          {(organizations.length > 0 || notices.length > 0) && (
+            <aside className="lg:col-span-4 space-y-4">
+              {/* Organizations / Topic Circles */}
+              {organizations.length > 0 && (
+                <div className="p-5 bg-slate-900/80 border border-slate-800/80 rounded-2xl shadow-lg backdrop-blur-sm">
+                  <h3 className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider mb-3">
+                    Topic Circles
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {organizations.map((org) => (
+                      <Link
+                        key={org.public_id}
+                        href={filterUrl(currentSort, org.slug)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono transition ${
+                          org.slug === currentOrg
+                            ? 'bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold'
+                            : 'bg-slate-850 text-slate-400 border border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                        }`}
+                      >
+                        {org.name}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Notices */}
-            {notices.length > 0 && (
-              <div className="p-5 bg-slate-950/80 border border-slate-800/80 rounded-2xl shadow-lg backdrop-blur-sm">
-                <h3 className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider mb-2">
-                  Notices
-                </h3>
-                <div className="space-y-2">
-                  {notices.slice(0, 2).map((notice) => (
-                    <Link href="/notices" key={notice.public_id} className="block text-xs group">
-                      <strong className="text-slate-200 group-hover:text-cyan-300 transition block">
-                        {notice.title}
-                      </strong>
-                      <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{notice.body}</p>
-                    </Link>
-                  ))}
+              {/* Notices */}
+              {notices.length > 0 && (
+                <div className="p-5 bg-slate-900/80 border border-slate-800/80 rounded-2xl shadow-lg backdrop-blur-sm">
+                  <h3 className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider mb-2">
+                    Notices
+                  </h3>
+                  <div className="space-y-2">
+                    {notices.slice(0, 2).map((notice) => (
+                      <Link href="/notices" key={notice.public_id} className="block text-xs group">
+                        <strong className="text-slate-200 group-hover:text-cyan-300 transition block">
+                          {notice.title}
+                        </strong>
+                        <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{notice.body}</p>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {/* Privacy Promise Pill */}
-            <div className="p-5 bg-gradient-to-br from-slate-950/90 to-cyan-950/20 border border-slate-800/80 rounded-2xl shadow-lg backdrop-blur-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldCheck size={16} className="text-emerald-400" />
-                <span className="text-xs font-mono font-bold text-slate-200">PRIVACY PROMISE</span>
-              </div>
-              <ul className="text-xs text-slate-400 space-y-1.5 font-sans">
-                <li className="flex items-center gap-2">
-                  <span className="text-emerald-400">✓</span> No email or phone needed
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-emerald-400">✓</span> No IP address logs stored
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-emerald-400">✓</span> Random ghost names available
-                </li>
-              </ul>
-              <Link href="/rules" className="text-cyan-400 hover:underline text-[11px] font-mono mt-3 inline-block">
-                Read Community Rules →
-              </Link>
-            </div>
-          </aside>
+              )}
+            </aside>
+          )}
         </div>
       </div>
     </AppLayout>
