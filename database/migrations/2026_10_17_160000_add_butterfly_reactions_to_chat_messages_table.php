@@ -11,12 +11,6 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasColumn('chat_messages', 'butterfly_count')) {
-            Schema::table('chat_messages', function (Blueprint $table) {
-                $table->unsignedInteger('butterfly_count')->default(0);
-            });
-        }
-
         if (!Schema::hasTable('chat_message_reactions')) {
             Schema::create('chat_message_reactions', function (Blueprint $table) {
                 $table->id();
@@ -34,10 +28,5 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('chat_message_reactions');
-        if (Schema::hasColumn('chat_messages', 'butterfly_count')) {
-            Schema::table('chat_messages', function (Blueprint $table) {
-                $table->dropColumn('butterfly_count');
-            });
-        }
     }
 };
