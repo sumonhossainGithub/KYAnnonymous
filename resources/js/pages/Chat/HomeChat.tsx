@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, useMemo, type FormEvent } from 'react';
 import { useForm, Link, usePage } from '@inertiajs/react';
 import { useLiveChat } from '@/hooks/useLiveChat';
 import ChatTools from '@/components/ChatTools';
 import AppLayout from '@/layouts/AppLayout';
-import type { ChatRoomSummary, ChatMessageItem, SharedProps } from '@/types';
+import type { ChatRoomSummary, ChatMessageItem, PollItem, SharedProps } from '@/types';
 import {
   Send,
   Radio,
@@ -27,7 +27,7 @@ import {
 import EmojiPicker from '@/components/EmojiPicker';
 import GardenButterflyOverlay, { type GardenButterflyRef } from '@/components/GardenButterflyOverlay';
 import ChatFlowerOverlay, { type ChatFlowerRef } from '@/components/ChatFlowerOverlay';
-import PollSection from '@/components/PollSection';
+import { PollCard, PollCreateModal, ActivePollBanner } from '@/components/PollSection';
 
 interface Props {
   room: ChatRoomSummary;
@@ -196,7 +196,60 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   };
 
 
-  const latest = messages.at(-1)?.public_id;
+  type StreamItem =
+    | { type: 'message'; key: string; timestamp: number; message: ChatMessageItem }
+    | { type: 'poll'; key: string; timestamp: number; poll: PollItem };
+
+  const streamItems = useMemo<StreamItem[]>(() => {
+    const items: StreamItem[] = [];
+
+    const filteredMessages = messages.filter((message) => {
+      if (!searchTerm) return true;
+      const term = searchTerm.toLowerCase();
+      return [
+        message.message,
+        message.sender.display_name,
+        ...(message.sub_chats || []).map((reply) => reply.message),
+      ].some((text) => text.toLowerCase().includes(term));
+    });
+
+    filteredMessages.forEach((msg) => {
+      items.push({
+        type: 'message',
+        key: `msg-${msg.public_id}`,
+        timestamp: msg.raw_created_at ?? 0,
+        message: msg,
+      });
+    });
+
+    const filteredPolls = live.polls.filter((poll) => {
+      if (!searchTerm) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        poll.question.toLowerCase().includes(term) ||
+        poll.creator.display_name.toLowerCase().includes(term) ||
+        poll.options.some((o) => o.toLowerCase().includes(term))
+      );
+    });
+
+    filteredPolls.forEach((poll) => {
+      // Sort timestamp is raw_updated_at (so any vote bumps it to the latest position!)
+      const ts = poll.raw_updated_at || poll.raw_created_at || (Date.now() / 1000);
+      items.push({
+        type: 'poll',
+        key: `poll-${poll.public_id}-${poll.total_votes}`,
+        timestamp: ts,
+        poll: poll,
+      });
+    });
+
+    // Chronological sort: oldest first, newest or recently bumped poll at the bottom
+    items.sort((a, b) => a.timestamp - b.timestamp);
+
+    return items;
+  }, [messages, live.polls, searchTerm]);
+
+  const latest = streamItems.at(-1)?.key;
 
   useEffect(() => {
     if (latest === lastMessage.current) return;
@@ -286,22 +339,24 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             </span>
           </header>
 
-          {/* Active Polls & Poll Creation */}
-          {(live.polls.length > 0 || isPollCreateOpen) && (
-            <div className="poll-section-container px-4 pt-3 pb-1 border-b border-slate-800/40 bg-slate-950/40">
-              <PollSection
-                polls={live.polls}
-                onCreatePoll={live.createPoll}
-                onVotePoll={live.votePoll}
-                onRetractPollVote={live.retractPollVote}
-                onDeletePoll={live.deletePoll}
-                canCreate={Boolean(auth.user)}
-                sending={live.sending}
-                isCreateOpen={isPollCreateOpen}
-                onToggleCreate={setIsPollCreateOpen}
-              />
-            </div>
-          )}
+          {/* Active Poll Slim Top Banner */}
+          <ActivePollBanner
+            polls={live.polls}
+            onJumpToPoll={(id) => {
+              const el = document.getElementById(`poll-${id}`);
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+          />
+
+          {/* Telegram Poll Creation Modal */}
+          <PollCreateModal
+            isOpen={isPollCreateOpen}
+            onClose={() => setIsPollCreateOpen(false)}
+            onCreatePoll={live.createPoll}
+            sending={live.sending}
+          />
 
           {/* Conversation Messages Stream */}
           <div
@@ -319,7 +374,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             aria-live="polite"
             aria-relevant="additions"
           >
-            {messages.length === 0 && (
+            {streamItems.length === 0 && (
               <div className="conversation-start">
                 <div className="empty-orbit">
                   <Radio size={24} className="text-cyan-400" />
@@ -333,7 +388,21 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
               </div>
             )}
 
-            {messages.filter(message => !searchTerm || [message.message, message.sender.display_name, ...(message.sub_chats || []).map(reply => reply.message)].some(text => text.toLowerCase().includes(searchTerm.toLowerCase()))).map((message, index, arr) => {
+            {streamItems.map((item, index, arr) => {
+              if (item.type === 'poll') {
+                return (
+                  <PollCard
+                    key={item.key}
+                    poll={item.poll}
+                    onVote={live.votePoll}
+                    onRetract={live.retractPollVote}
+                    onDelete={live.deletePoll}
+                    sending={live.sending}
+                  />
+                );
+              }
+
+              const message = item.message;
               const own = Boolean(message.is_own || mySentIds.has(message.public_id) || (auth.user && message.sender.public_id === auth.user?.public_id));
               const isGhost = message.is_ghost || message.sender.is_ghost || message.is_guest;
               const isSubChatOpen = activeSubChatId === message.public_id;

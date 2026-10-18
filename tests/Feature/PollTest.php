@@ -233,4 +233,33 @@ class PollTest extends TestCase
         $this->assertEquals(0, $results[0]);
         $this->assertEquals(1, $results[1]);
     }
+
+    public function test_voting_on_poll_updates_timestamp_so_it_bumps_to_latest(): void
+    {
+        $poll = Poll::create([
+            'chat_room_id' => $this->room->id,
+            'user_id' => $this->user->id,
+            'question' => 'Will this bump?',
+            'options' => ['Yes', 'No'],
+            'expires_at' => now()->addHours(24),
+        ]);
+
+        $originalUpdatedAt = $poll->updated_at;
+
+        // Simulate voting after 10 seconds
+        $this->travel(10)->seconds();
+
+        $res = $this->actingAs($this->user)->postJson("/chat/{$this->room->slug}/polls/{$poll->public_id}/vote", [
+            'option_index' => 0,
+        ]);
+        $res->assertStatus(200);
+
+        $poll->refresh();
+        $this->assertTrue($poll->updated_at->gt($originalUpdatedAt));
+
+        $payload = $res->json();
+        $this->assertNotEmpty($payload['polls']);
+        $this->assertArrayHasKey('raw_updated_at', $payload['polls'][0]);
+        $this->assertEquals($poll->updated_at->getTimestamp(), $payload['polls'][0]['raw_updated_at']);
+    }
 }

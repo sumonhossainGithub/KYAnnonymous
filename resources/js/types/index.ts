@@ -131,6 +131,9 @@ export interface PollItem {
   user_vote: number | null;
   is_expired: boolean;
   created_at: string;
+  updated_at?: string;
+  raw_created_at?: number;
+  raw_updated_at?: number;
   expires_at: string | null;
   creator: {
     public_id?: string | null;
@@ -148,6 +151,7 @@ export interface ChatMessageItem {
   public_id: string;
   message: string;
   created_at: string;
+  raw_created_at?: number;
   is_ghost?: boolean;
   is_guest?: boolean;
   is_own?: boolean;

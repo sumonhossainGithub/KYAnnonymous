@@ -322,6 +322,7 @@ class CommunityController extends Controller
                     'public_id' => $m->public_id,
                     'message' => $m->message,
                     'created_at' => $m->created_at->isToday() ? $m->created_at->format('H:i') : $m->created_at->format('M j, H:i'),
+                    'raw_created_at' => $m->created_at->getTimestamp(),
                     'is_ghost' => (bool) ($m->is_ghost ?? false),
                     'is_guest' => (bool) ($m->is_guest ?? false),
                     'is_own' => $isOwn,
@@ -496,7 +497,7 @@ class CommunityController extends Controller
             $polls = Poll::with(['votes', 'creator'])
                 ->where('chat_room_id', $room->id)
                 ->where('is_active', true)
-                ->orderBy('created_at', 'desc')
+                ->orderBy('updated_at', 'desc')
                 ->get()
                 ->map(function (Poll $poll) use ($voterKey) {
                     $results = $poll->tallyResults();
@@ -507,6 +508,9 @@ class CommunityController extends Controller
                         'question' => $poll->question,
                         'options' => $poll->options,
                         'created_at' => $poll->created_at->diffForHumans(),
+                        'updated_at' => $poll->updated_at?->diffForHumans(),
+                        'raw_created_at' => $poll->created_at->getTimestamp(),
+                        'raw_updated_at' => $poll->updated_at?->getTimestamp() ?? $poll->created_at->getTimestamp(),
                         'expires_at' => $poll->expires_at?->toIso8601String(),
                         'is_expired' => $poll->isExpired(),
                         'results' => $results,
@@ -770,13 +774,14 @@ class CommunityController extends Controller
         // Each poll runs for exactly 24 hours like Telegram
         $expiresAt = now()->addHours(24);
 
-        Poll::create([
+        $poll = Poll::create([
             'chat_room_id' => $room->id,
             'user_id' => $user->id,
             'question' => trim(strip_tags($data['question'])),
             'options' => array_values(array_filter(array_map(fn ($opt) => trim(strip_tags($opt)), $data['options']))),
             'expires_at' => $expiresAt,
         ]);
+        $poll->touch();
 
         return response()->json($this->chatPayload($request, $room), 201)->header('Cache-Control', 'no-store');
     }
@@ -815,6 +820,8 @@ class CommunityController extends Controller
             'created_at' => now(),
         ]);
 
+        $poll->touch();
+
         return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
     }
 
@@ -836,6 +843,8 @@ class CommunityController extends Controller
         $voterKey = $user ? "u_{$user->id}" : 'g_' . substr((string) session()->getId(), 0, 8);
 
         PollVote::where('poll_id', $poll->id)->where('voter_key', $voterKey)->delete();
+
+        $poll->touch();
 
         return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
     }
