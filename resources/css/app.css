@@ -1750,11 +1750,7 @@ textarea {
   color: rgba(255, 255, 255, 0.85);
 }
 
-.message-bubble:hover time,
-.message-bubble:active time,
 .message-bubble.show-time time,
-.chat-message:hover time,
-.chat-message:active time,
 .chat-message.show-time time {
   max-height: 24px;
   opacity: 1;

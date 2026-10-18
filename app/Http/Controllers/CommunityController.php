@@ -490,30 +490,35 @@ class CommunityController extends Controller
 
         $voterKey = $request->user() ? "u_{$request->user()->id}" : 'g_' . substr((string) session()->getId(), 0, 8);
 
-        $polls = Poll::with(['votes', 'creator'])
-            ->where('chat_room_id', $room->id)
-            ->where('is_active', true)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function (Poll $poll) use ($voterKey) {
-                $results = $poll->tallyResults();
-                $userVote = $poll->votes->firstWhere('voter_key', $voterKey);
+        $polls = [];
+        try {
+            $polls = Poll::with(['votes', 'creator'])
+                ->where('chat_room_id', $room->id)
+                ->where('is_active', true)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function (Poll $poll) use ($voterKey) {
+                    $results = $poll->tallyResults();
+                    $userVote = $poll->votes->firstWhere('voter_key', $voterKey);
 
-                return [
-                    'public_id' => $poll->public_id,
-                    'question' => $poll->question,
-                    'options' => $poll->options,
-                    'created_at' => $poll->created_at->diffForHumans(),
-                    'expires_at' => $poll->expires_at?->toIso8601String(),
-                    'is_expired' => $poll->isExpired(),
-                    'results' => $results,
-                    'total_votes' => array_sum($results),
-                    'user_vote' => $userVote ? $userVote->option_index : null,
-                    'creator' => [
-                        'display_name' => $poll->creator ? $poll->creator->display_name : 'Anonymous',
-                    ],
-                ];
-            });
+                    return [
+                        'public_id' => $poll->public_id,
+                        'question' => $poll->question,
+                        'options' => $poll->options,
+                        'created_at' => $poll->created_at->diffForHumans(),
+                        'expires_at' => $poll->expires_at?->toIso8601String(),
+                        'is_expired' => $poll->isExpired(),
+                        'results' => $results,
+                        'total_votes' => array_sum($results),
+                        'user_vote' => $userVote ? $userVote->option_index : null,
+                        'creator' => [
+                            'display_name' => $poll->creator ? $poll->creator->display_name : 'Anonymous',
+                        ],
+                    ];
+                });
+        } catch (\Throwable) {
+            $polls = [];
+        }
 
         // Butterfly broadcast events for all active users
         $butterflyEventsKey = "chat_butterfly_events_{$room->id}";

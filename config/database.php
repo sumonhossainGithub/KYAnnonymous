@@ -7,7 +7,17 @@ return [
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            'database' => (function () {
+                $db = env('DB_DATABASE', database_path('database.sqlite'));
+                if ($db === ':memory:') return ':memory:';
+                if (!str_contains($db, '/') && !str_contains($db, '\\')) {
+                    return database_path($db);
+                }
+                if (!str_starts_with($db, '/') && !str_contains($db, ':')) {
+                    return base_path($db);
+                }
+                return $db;
+            })(),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
         ],
