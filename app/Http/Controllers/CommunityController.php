@@ -6,6 +6,8 @@ use App\Models\ChatMessage;
 use App\Models\ChatRoom;
 use App\Models\Notice;
 use App\Models\Organization;
+use App\Models\Poll;
+use App\Models\PollVote;
 use App\Models\Post;
 use App\Models\Report;
 use App\Models\User;
@@ -486,9 +488,51 @@ class CommunityController extends Controller
         }
         $typingList = array_values(array_unique($typingList));
 
+        $voterKey = $request->user() ? "u_{$request->user()->id}" : 'g_' . substr((string) session()->getId(), 0, 8);
+
+        $polls = Poll::with(['votes', 'creator'])
+            ->where('chat_room_id', $room->id)
+            ->where('is_active', true)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function (Poll $poll) use ($voterKey) {
+                $results = $poll->tallyResults();
+                $userVote = $poll->votes->firstWhere('voter_key', $voterKey);
+
+                return [
+                    'public_id' => $poll->public_id,
+                    'question' => $poll->question,
+                    'options' => $poll->options,
+                    'created_at' => $poll->created_at->diffForHumans(),
+                    'expires_at' => $poll->expires_at?->toIso8601String(),
+                    'is_expired' => $poll->isExpired(),
+                    'results' => $results,
+                    'total_votes' => array_sum($results),
+                    'user_vote' => $userVote ? $userVote->option_index : null,
+                    'creator' => [
+                        'display_name' => $poll->creator ? $poll->creator->display_name : 'Anonymous',
+                    ],
+                ];
+            });
+
+        // Butterfly broadcast events for all active users
+        $butterflyEventsKey = "chat_butterfly_events_{$room->id}";
+        $rawButterflyEvents = \Illuminate\Support\Facades\Cache::get($butterflyEventsKey, []);
+        $butterflyEvents = [];
+        if (is_array($rawButterflyEvents)) {
+            $nowTime = microtime(true);
+            foreach ($rawButterflyEvents as $evt) {
+                if (is_array($evt) && ($nowTime - ($evt['timestamp'] ?? 0)) < 15) {
+                    $butterflyEvents[] = $evt;
+                }
+            }
+        }
+
         return [
             'messages' => $this->loadMessagesForRoom($room->id, \App\Models\AppSetting::isTrue('admin_stealth_mode'), $request->user()?->id),
             'typing' => $typingList,
+            'polls' => $polls,
+            'butterfly_events' => $butterflyEvents,
             'policy' => [
                 'can_send' => $site['chat_enabled'] && !$locked && ($request->user() !== null || $site['guest_chat_enabled']),
                 'reason' => !$site['chat_enabled'] || $locked ? 'Chat is temporarily paused by admin.' : (!$request->user() && !$site['guest_chat_enabled'] ? 'Sign in to send messages.' : ''),
@@ -556,6 +600,24 @@ class CommunityController extends Controller
             }
         });
 
+        // Broadcast butterfly flight event to all active users in room
+        $butterflyEventsKey = "chat_butterfly_events_{$room->id}";
+        $rawEvents = \Illuminate\Support\Facades\Cache::get($butterflyEventsKey, []);
+        $activeEvents = [];
+        $nowTime = microtime(true);
+        if (is_array($rawEvents)) {
+            foreach ($rawEvents as $evt) {
+                if (is_array($evt) && ($nowTime - ($evt['timestamp'] ?? 0)) < 15) {
+                    $activeEvents[] = $evt;
+                }
+            }
+        }
+        $activeEvents[] = [
+            'message_public_id' => $message->public_id,
+            'timestamp' => $nowTime,
+        ];
+        \Illuminate\Support\Facades\Cache::put($butterflyEventsKey, $activeEvents, 30);
+
         return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
     }
 
@@ -617,6 +679,67 @@ class CommunityController extends Controller
         ]);
 
         return back()->with('success', 'Report received. Our moderation team will inspect this content.');
+    }
+
+    public function createPoll(Request $request, string $slug)
+    {
+        abort_unless($request->user()->status === 'ACTIVE', 403, 'Account is suspended.');
+
+        $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
+
+        $data = $request->validate([
+            'question' => ['required', 'string', 'max:200'],
+            'options' => ['required', 'array', 'min:2', 'max:6'],
+            'options.*' => ['required', 'string', 'max:100'],
+            'expires_in_hours' => ['nullable', 'integer', 'min:1', 'max:168'],
+        ]);
+
+        $expiresAt = now()->addHours($data['expires_in_hours'] ?? 24);
+
+        Poll::create([
+            'chat_room_id' => $room->id,
+            'user_id' => $request->user()->id,
+            'question' => trim(strip_tags($data['question'])),
+            'options' => array_map(fn ($opt) => trim(strip_tags($opt)), $data['options']),
+            'expires_at' => $expiresAt,
+        ]);
+
+        return response()->json($this->chatPayload($request, $room), 201)->header('Cache-Control', 'no-store');
+    }
+
+    public function votePoll(Request $request, string $slug, string $pollPublicId)
+    {
+        $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
+
+        $poll = Poll::where('public_id', $pollPublicId)
+            ->where('chat_room_id', $room->id)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        if ($poll->isExpired()) {
+            throw ValidationException::withMessages(['poll' => 'This poll has expired.']);
+        }
+
+        $data = $request->validate([
+            'option_index' => ['required', 'integer', 'min:0', 'max:' . (count($poll->options) - 1)],
+        ]);
+
+        $user = $request->user();
+        $voterKey = $user ? "u_{$user->id}" : 'g_' . substr((string) session()->getId(), 0, 8);
+
+        $existing = PollVote::where('poll_id', $poll->id)->where('voter_key', $voterKey)->first();
+        if ($existing) {
+            throw ValidationException::withMessages(['poll' => 'You have already voted on this poll.']);
+        }
+
+        PollVote::create([
+            'poll_id' => $poll->id,
+            'option_index' => $data['option_index'],
+            'voter_key' => $voterKey,
+            'created_at' => now(),
+        ]);
+
+        return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
     }
 
     public function privacy()

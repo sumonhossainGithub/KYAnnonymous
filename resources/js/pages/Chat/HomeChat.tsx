@@ -25,6 +25,7 @@ import {
 import EmojiPicker from '@/components/EmojiPicker';
 import GardenButterflyOverlay, { type GardenButterflyRef } from '@/components/GardenButterflyOverlay';
 import ChatFlowerOverlay, { type ChatFlowerRef } from '@/components/ChatFlowerOverlay';
+import PollSection from '@/components/PollSection';
 
 interface Props {
   room: ChatRoomSummary;
@@ -123,6 +124,23 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
 
   const butterflyRef = useRef<GardenButterflyRef>(null);
   const flowerRef = useRef<ChatFlowerRef>(null);
+
+  // Listen for butterfly reactions from any active user in the room!
+  useEffect(() => {
+    return live.onButterflyBroadcast((msgPublicId) => {
+      const el = document.querySelector(`[data-message-id="${msgPublicId}"]`);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        butterflyRef.current?.flyTo(rect);
+        flowerRef.current?.bloomAt(rect.left + rect.width / 2, rect.top);
+      } else {
+        const fallbackRect = new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 60, 30);
+        butterflyRef.current?.flyTo(fallbackRect);
+        flowerRef.current?.bloomAt(window.innerWidth / 2, window.innerHeight / 2);
+      }
+    });
+  }, [live.onButterflyBroadcast]);
+
   const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
 
@@ -138,7 +156,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
     const timeSinceLastTap = now - lastTapRef.current.time;
 
     if (lastTapRef.current.id === msg.public_id && timeSinceLastTap < 380) {
-      // Double tap detected!
+      // Double tap / double click detected -> butterfly reaction!
       if (tapTimeoutRef.current) {
         clearTimeout(tapTimeoutRef.current);
         tapTimeoutRef.current = null;
@@ -146,12 +164,9 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
       lastTapRef.current = { id: '', time: 0 };
       void handleButterflyReact(msg, targetEl);
     } else {
-      // First tap: set timer to toggle timestamp if not double tapped
+      // Single tap / click -> immediately toggle timestamp!
       lastTapRef.current = { id: msg.public_id, time: now };
-      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
-      tapTimeoutRef.current = setTimeout(() => {
-        setTouchedMessageId(prev => prev === msg.public_id ? null : msg.public_id);
-      }, 260);
+      setTouchedMessageId(prev => prev === msg.public_id ? null : msg.public_id);
     }
   };
 
@@ -224,7 +239,15 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
       <div className="chat-layout">
         <section className="conversation-panel" aria-label="Public Chatbox">
           <ChatFlowerOverlay ref={flowerRef} />
-          <ChatTools search={searchTerm} onSearch={setSearchTerm} autoScroll={autoScroll} onAutoScroll={setAutoScroll} onRefresh={() => void live.refresh()} connected={connected} />
+          <ChatTools
+            search={searchTerm}
+            onSearch={setSearchTerm}
+            autoScroll={autoScroll}
+            onAutoScroll={setAutoScroll}
+            onRefresh={() => void live.refresh()}
+            connected={connected}
+            onToggleNotifications={live.setNotifications}
+          />
           <header className="conversation-header">
             <span className="room-symbol">
               <MessageCircle size={20} className="text-cyan-400" />
@@ -237,6 +260,17 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
               {connected ? 'LIVE FEED' : 'RECONNECTING…'}
             </span>
           </header>
+
+          {/* Active Polls & Poll Creation */}
+          <div className="px-4 pt-3 pb-1 border-b border-slate-800/40 bg-slate-950/40">
+            <PollSection
+              polls={live.polls}
+              onCreatePoll={live.createPoll}
+              onVotePoll={live.votePoll}
+              canCreate={Boolean(auth.user)}
+              sending={live.sending}
+            />
+          </div>
 
           {/* Conversation Messages Stream */}
           <div
@@ -304,6 +338,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                     <div className={`flex items-end gap-2 ${own ? 'flex-row-reverse' : 'flex-row'}`}>
                       <div className={`flex flex-col ${own ? 'items-end' : 'items-start'}`}>
                         <div
+                          data-message-id={message.public_id}
                           className={`message-bubble relative font-sans cursor-pointer transition select-none ${touchedMessageId === message.public_id ? 'show-time' : ''}`}
                           onClick={(e) => handleMessageTapOrClick(message, e.currentTarget)}
                           onDoubleClick={(e) => {
@@ -311,7 +346,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                             if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
                             void handleButterflyReact(message, e.currentTarget);
                           }}
-                          title="Double-tap to magic butterfly · Tap to view timestamp"
+                          title="Double-tap to magic butterfly · Click to view timestamp"
                         >
                           {/* Perched Garden Butterfly sitting on the message */}
                           {(message.butterfly_count ?? 0) > 0 && (

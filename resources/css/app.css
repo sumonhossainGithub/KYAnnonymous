@@ -3032,8 +3032,9 @@ textarea {
 .site-home-intro h1 { font-size: clamp(24px, 4vw, 38px); line-height: 1.2; margin-bottom: 10px; }
 .site-home-intro p { color: #94a3b8; line-height: 1.7; }
 .chat-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 14px; border-bottom: 1px solid var(--line); flex-shrink: 0; background: rgba(3, 7, 18, 0.4); }
-.chat-search { display: flex; align-items: center; gap: 6px; max-width: 220px; flex: 1 1 auto; min-width: 0; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 3px 8px; }
-.chat-search input { width: 100%; min-width: 0; background: transparent; border: none; padding: 2px 4px; font-size: 12px; color: #f1f5f9; outline: none; }
+.chat-search { display: flex; align-items: center; gap: 8px; max-width: 220px; flex: 1 1 auto; min-width: 0; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 4px 8px; }
+.chat-search svg { flex-shrink: 0; color: #64748b; }
+.chat-search input { width: 100%; min-width: 0; background: transparent; border: none !important; padding: 0 4px !important; font-size: 12px; color: #f1f5f9; outline: none; }
 .chat-follow { display: flex; align-items: center; gap: 6px; font-size: 11px; font-family: monospace; color: #94a3b8; cursor: pointer; white-space: nowrap; }
 .conversation-panel:has(.chat-tools) { min-height: 560px; }
 .settings-page { max-width: 1280px; margin: auto; }

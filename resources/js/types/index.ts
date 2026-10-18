@@ -122,6 +122,24 @@ export interface ChatSubMessage {
   sender: ChatSender;
 }
 
+export interface PollItem {
+  public_id: string;
+  question: string;
+  options: string[];
+  results: number[];
+  total_votes: number;
+  user_vote: number | null;
+  is_expired: boolean;
+  created_at: string;
+  expires_at: string | null;
+  creator: { display_name: string };
+}
+
+export interface ButterflyEvent {
+  message_public_id: string;
+  timestamp: number;
+}
+
 export interface ChatMessageItem {
   public_id: string;
   message: string;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChatMessageItem, SiteSettings } from '@/types';
+import type { ChatMessageItem, PollItem, ButterflyEvent, SiteSettings } from '@/types';
 
 interface Policy {
   can_send: boolean;
@@ -9,11 +9,17 @@ interface Policy {
   message_max_length: number;
   poll_interval: number;
 }
-interface Snapshot { messages: ChatMessageItem[]; policy: Policy; typing?: string[] }
+interface Snapshot {
+  messages: ChatMessageItem[];
+  policy: Policy;
+  typing?: string[];
+  polls?: PollItem[];
+  butterfly_events?: ButterflyEvent[];
+}
 
 export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], site: SiteSettings, canSend: boolean) {
   const initialPolicy: Policy = { can_send: canSend, reason: canSend ? '' : 'Chat is paused or requires sign-in.', ...site };
-  const [state, setState] = useState<{ slug: string; snapshot: Snapshot }>({ slug, snapshot: { messages: initialMessages, policy: initialPolicy, typing: [] } });
+  const [state, setState] = useState<{ slug: string; snapshot: Snapshot }>({ slug, snapshot: { messages: initialMessages, policy: initialPolicy, typing: [], polls: [], butterfly_events: [] } });
   const [connected, setConnected] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -22,12 +28,55 @@ export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], si
   const activeWrite = useRef<AbortController | null>(null);
   const lastTypingPing = useRef(0);
   const currentSlug = useRef(slug);
-  const snapshot = state.slug === slug ? state.snapshot : { messages: initialMessages, policy: initialPolicy, typing: [] };
+  const prevMessageCount = useRef(initialMessages.length);
+  const notificationsEnabled = useRef(false);
+  const seenButterflyEvents = useRef<Set<string>>(new Set());
+  const butterflyCallbacks = useRef<Array<(msgPublicId: string) => void>>([]);
+  const snapshot = state.slug === slug ? state.snapshot : { messages: initialMessages, policy: initialPolicy, typing: [], polls: [], butterfly_events: [] };
 
   const accept = useCallback((value: Snapshot) => {
     if (currentSlug.current !== slug) return;
     setState(previous => previous.slug === slug && JSON.stringify(previous.snapshot) === JSON.stringify(value) ? previous : { slug, snapshot: value });
     setConnected(true);
+
+    // Browser notification for new messages when tab is hidden
+    if (document.hidden && notificationsEnabled.current && value.messages.length > prevMessageCount.current) {
+      const newMsgs = value.messages.slice(prevMessageCount.current);
+      for (const msg of newMsgs) {
+        if (msg.is_own) continue;
+        try {
+          const notif = new Notification(msg.sender.display_name, {
+            body: msg.message || '📎 Sent an attachment',
+            icon: msg.sender.avatar_url || undefined,
+            tag: `chat-${slug}-${msg.public_id}`,
+            silent: false,
+          });
+          notif.onclick = () => {
+            window.focus();
+            notif.close();
+          };
+        } catch {}
+      }
+    }
+    prevMessageCount.current = value.messages.length;
+
+    // Process butterfly events for broadcast animation
+    if (value.butterfly_events && value.butterfly_events.length > 0) {
+      for (const evt of value.butterfly_events) {
+        const key = `${evt.message_public_id}_${evt.timestamp}`;
+        if (!seenButterflyEvents.current.has(key)) {
+          seenButterflyEvents.current.add(key);
+          for (const cb of butterflyCallbacks.current) {
+            cb(evt.message_public_id);
+          }
+        }
+      }
+      // Keep set from growing unbounded
+      if (seenButterflyEvents.current.size > 200) {
+        const arr = [...seenButterflyEvents.current];
+        seenButterflyEvents.current = new Set(arr.slice(-100));
+      }
+    }
   }, [slug]);
 
   const refresh = useCallback(async () => {
@@ -139,9 +188,23 @@ export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], si
     } catch {}
   }, [slug]);
 
-  return { ...snapshot, typing: snapshot.typing || [], connected, sending, error, refresh, sendTyping,
+  const setNotifications = useCallback((enabled: boolean) => {
+    notificationsEnabled.current = enabled;
+  }, []);
+
+  const onButterflyBroadcast = useCallback((cb: (msgPublicId: string) => void) => {
+    butterflyCallbacks.current.push(cb);
+    return () => {
+      butterflyCallbacks.current = butterflyCallbacks.current.filter(fn => fn !== cb);
+    };
+  }, []);
+
+  return { ...snapshot, typing: snapshot.typing || [], polls: snapshot.polls || [], connected, sending, error, refresh, sendTyping,
+    setNotifications, onButterflyBroadcast,
     send: (data: object | FormData) => write(`/chat/${encodeURIComponent(slug)}/message`, 'POST', data),
     reactButterfly: (publicId: string) => write(`/chat/${encodeURIComponent(slug)}/messages/${publicId}/butterfly`, 'POST'),
     remove: (publicId: string) => write(`/admin/chat/${encodeURIComponent(slug)}/messages/${publicId}`, 'DELETE'),
+    createPoll: (data: { question: string; options: string[] }) => write(`/chat/${encodeURIComponent(slug)}/polls`, 'POST', data),
+    votePoll: (pollPublicId: string, optionIndex: number) => write(`/chat/${encodeURIComponent(slug)}/polls/${pollPublicId}/vote`, 'POST', { option_index: optionIndex }),
   };
 }

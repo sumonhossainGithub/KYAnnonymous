@@ -21,6 +21,8 @@ Route::post('/chat/{slug}/message', [CommunityController::class, 'sendChatMessag
 Route::post('/chat/{slug}/messages/{public_id}/butterfly', [CommunityController::class, 'reactButterfly'])->middleware('not_banned');
 Route::post('/chat/{slug}/typing', [CommunityController::class, 'recordTyping'])->middleware('not_banned');
 Route::post('/chat/{slug}/unlock', [CommunityController::class, 'unlockChatRoom'])->name('chat.room.unlock')->middleware('not_banned');
+Route::post('/chat/{slug}/polls', [CommunityController::class, 'createPoll'])->middleware(['auth', 'not_banned']);
+Route::post('/chat/{slug}/polls/{pollPublicId}/vote', [CommunityController::class, 'votePoll'])->middleware('not_banned');
 
 // Guest Authentication Routes
 Route::middleware('guest')->group(function () {
