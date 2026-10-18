@@ -11,14 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('avatar_url', 500)->nullable()->after('show_gender');
-        });
+        if (!Schema::hasColumn('users', 'avatar_url')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->string('avatar_url', 500)->nullable();
+            });
+        }
 
         Schema::table('chat_messages', function (Blueprint $table) {
-            $table->foreignId('user_id')->nullable()->change();
-            $table->boolean('is_guest')->default(false)->after('is_ghost');
-            $table->boolean('is_ephemeral')->default(false)->after('is_guest');
+            if (config('database.default') !== 'sqlite') {
+                $table->foreignId('user_id')->nullable()->change();
+            }
+            if (!Schema::hasColumn('chat_messages', 'is_guest')) {
+                $table->boolean('is_guest')->default(false);
+            }
+            if (!Schema::hasColumn('chat_messages', 'is_ephemeral')) {
+                $table->boolean('is_ephemeral')->default(false);
+            }
         });
     }
 

@@ -21,6 +21,8 @@ import {
   Trash2,
   FileText,
   Download,
+  BarChart3,
+  Paperclip,
 } from 'lucide-react';
 import EmojiPicker from '@/components/EmojiPicker';
 import GardenButterflyOverlay, { type GardenButterflyRef } from '@/components/GardenButterflyOverlay';
@@ -68,10 +70,33 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   });
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [isPollCreateOpen, setIsPollCreateOpen] = useState(false);
+  const plusMenuRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedPreviewUrl, setAttachedPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!showPlusMenu) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+        setShowPlusMenu(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowPlusMenu(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showPlusMenu]);
 
   const clearAttachment = () => {
     setAttachedFile(null);
@@ -262,15 +287,20 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
           </header>
 
           {/* Active Polls & Poll Creation */}
-          <div className="px-4 pt-3 pb-1 border-b border-slate-800/40 bg-slate-950/40">
-            <PollSection
-              polls={live.polls}
-              onCreatePoll={live.createPoll}
-              onVotePoll={live.votePoll}
-              canCreate={Boolean(auth.user)}
-              sending={live.sending}
-            />
-          </div>
+          {(live.polls.length > 0 || isPollCreateOpen) && (
+            <div className="poll-section-container px-4 pt-3 pb-1 border-b border-slate-800/40 bg-slate-950/40">
+              <PollSection
+                polls={live.polls}
+                onCreatePoll={live.createPoll}
+                onVotePoll={live.votePoll}
+                onDeletePoll={live.deletePoll}
+                canCreate={Boolean(auth.user)}
+                sending={live.sending}
+                isCreateOpen={isPollCreateOpen}
+                onToggleCreate={setIsPollCreateOpen}
+              />
+            </div>
+          )}
 
           {/* Conversation Messages Stream */}
           <div
@@ -712,9 +742,9 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                 )}
 
                 <form onSubmit={send}>
-                  {/* Plus icon for registered users */}
+                  {/* Plus icon / action menu for registered users (USER and SUPER_ADMIN) */}
                   {auth.user && (
-                    <>
+                    <div className="relative flex items-center" ref={plusMenuRef}>
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -724,18 +754,81 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                       />
                       <button
                         type="button"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => setShowPlusMenu((prev) => !prev)}
                         className={`icon-button transition ${
-                          attachedFile
+                          showPlusMenu || attachedFile
                             ? 'bg-emerald-950 border border-emerald-400 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
                             : 'text-slate-400 hover:text-emerald-300 hover:bg-emerald-950/40'
                         }`}
-                        title="Add image or file (< 10 MB)"
-                        aria-label="Add image or file"
+                        title="Add attachment or poll"
+                        aria-label="Add attachment or poll"
+                        aria-expanded={showPlusMenu}
                       >
-                        <Plus size={18} />
+                        <Plus size={18} className={`transition-transform duration-200 ${showPlusMenu ? 'rotate-45' : ''}`} />
                       </button>
-                    </>
+
+                      {showPlusMenu && (
+                        <div
+                          role="menu"
+                          className="absolute bottom-full left-0 mb-2 w-56 sm:w-64 rounded-2xl bg-[#061b18]/95 border border-emerald-500/30 p-2 shadow-[0_-10px_35px_rgba(0,0,0,0.65)] backdrop-blur-xl z-50 text-slate-200 select-none animate-in fade-in slide-in-from-bottom-2 duration-150"
+                        >
+                          <div className="px-2.5 py-1 text-[10px] font-mono text-emerald-400/80 uppercase tracking-wider border-b border-emerald-500/20 mb-1.5 flex items-center justify-between">
+                            <span>Options</span>
+                            <span className="text-[9px] text-slate-400 font-mono">
+                              {auth.user.role === 'SUPER_ADMIN' ? 'ADMIN' : 'MEMBER'}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setShowPlusMenu(false);
+                              fileInputRef.current?.click();
+                            }}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left hover:bg-emerald-900/40 hover:text-emerald-200 transition-colors group cursor-pointer"
+                          >
+                            <div className="p-1.5 rounded-lg bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 group-hover:border-emerald-400/60 transition-colors">
+                              <Paperclip size={15} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-slate-100 group-hover:text-emerald-300">
+                                Attach File / Image
+                              </div>
+                              <div className="text-[10px] font-mono text-slate-400">
+                                Photos, docs (&lt; 10 MB)
+                              </div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setShowPlusMenu(false);
+                              setIsPollCreateOpen(true);
+                              const el = document.querySelector('.poll-section-container');
+                              if (el) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                              }
+                            }}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left hover:bg-emerald-900/40 hover:text-emerald-200 transition-colors group cursor-pointer"
+                          >
+                            <div className="p-1.5 rounded-lg bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 group-hover:border-emerald-400/60 transition-colors">
+                              <BarChart3 size={15} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-slate-100 group-hover:text-emerald-300">
+                                Create a Poll
+                              </div>
+                              <div className="text-[10px] font-mono text-slate-400">
+                                Ask room with voting options
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   <input

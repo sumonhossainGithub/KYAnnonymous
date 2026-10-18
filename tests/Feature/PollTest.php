@@ -127,4 +127,58 @@ class PollTest extends TestCase
         $this->assertNotEmpty($json['butterfly_events']);
         $this->assertEquals($message->public_id, $json['butterfly_events'][0]['message_public_id']);
     }
+
+    public function test_super_admin_can_create_poll(): void
+    {
+        $admin = User::create([
+            'username' => 'superadmin',
+            'username_normalized' => 'superadmin',
+            'display_name' => 'Super Admin',
+            'gender' => 'Male',
+            'password' => bcrypt('password123!'),
+            'status' => 'ACTIVE',
+            'role' => 'SUPER_ADMIN',
+        ]);
+
+        $response = $this->actingAs($admin)->postJson("/chat/{$this->room->slug}/polls", [
+            'question' => 'Super Admin official poll?',
+            'options' => ['Option A', 'Option B'],
+        ]);
+
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('polls', [
+            'chat_room_id' => $this->room->id,
+            'question' => 'Super Admin official poll?',
+            'user_id' => $admin->id,
+        ]);
+
+        $payload = $response->json();
+        $this->assertNotEmpty($payload['polls']);
+        $this->assertTrue($payload['polls'][0]['creator']['is_admin']);
+    }
+
+    public function test_admin_and_creator_can_delete_poll(): void
+    {
+        $admin = User::create([
+            'username' => 'superadmin2',
+            'username_normalized' => 'superadmin2',
+            'display_name' => 'Super Admin 2',
+            'gender' => 'Female',
+            'password' => bcrypt('password123!'),
+            'status' => 'ACTIVE',
+            'role' => 'SUPER_ADMIN',
+        ]);
+
+        $poll = Poll::create([
+            'chat_room_id' => $this->room->id,
+            'user_id' => $this->user->id,
+            'question' => 'To be deleted?',
+            'options' => ['Yes', 'No'],
+        ]);
+
+        // Admin can delete any poll
+        $res = $this->actingAs($admin)->deleteJson("/chat/{$this->room->slug}/polls/{$poll->public_id}");
+        $res->assertStatus(200);
+        $this->assertDatabaseMissing('polls', ['public_id' => $poll->public_id]);
+    }
 }

@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('chat_messages', function (Blueprint $table) {
-            $table->foreignId('parent_id')->nullable()->after('chat_room_id')->constrained('chat_messages')->cascadeOnDelete();
-            $table->index(['parent_id', 'created_at']);
-        });
+        if (!Schema::hasColumn('chat_messages', 'parent_id')) {
+            Schema::table('chat_messages', function (Blueprint $table) {
+                $table->foreignId('parent_id')->nullable()->constrained('chat_messages')->cascadeOnDelete();
+                $table->index(['parent_id', 'created_at']);
+            });
+        }
     }
 
     /**

@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('chat_messages', function (Blueprint $table) {
-            $table->unsignedInteger('butterfly_count')->default(0);
-        });
+        if (!Schema::hasColumn('chat_messages', 'butterfly_count')) {
+            Schema::table('chat_messages', function (Blueprint $table) {
+                $table->unsignedInteger('butterfly_count')->default(0);
+            });
+        }
     }
 
     /**

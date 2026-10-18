@@ -10,9 +10,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('chat_rooms', function (Blueprint $table) {
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
-        });
+        if (!Schema::hasColumn('chat_rooms', 'created_by')) {
+            Schema::table('chat_rooms', function (Blueprint $table) {
+                $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            });
+        }
 
         foreach ([
             ['The common orbit', 'common-orbit', 'A little hello can become a meaningful connection. Everyone is welcome here.'],

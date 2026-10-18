@@ -132,7 +132,11 @@ export interface PollItem {
   is_expired: boolean;
   created_at: string;
   expires_at: string | null;
-  creator: { display_name: string };
+  creator: {
+    public_id?: string | null;
+    display_name: string;
+    is_admin?: boolean;
+  };
 }
 
 export interface ButterflyEvent {

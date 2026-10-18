@@ -1,19 +1,41 @@
 import { useState, type FormEvent } from 'react';
 import { usePage } from '@inertiajs/react';
 import type { PollItem, SharedProps } from '@/types';
-import { BarChart3, Plus, X, Vote, Clock, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Plus, X, Vote, Clock, CheckCircle2, Trash2 } from 'lucide-react';
 
 interface PollSectionProps {
   polls: PollItem[];
   onCreatePoll: (data: { question: string; options: string[] }) => Promise<boolean>;
   onVotePoll: (pollPublicId: string, optionIndex: number) => Promise<boolean>;
+  onDeletePoll?: (pollPublicId: string) => Promise<boolean>;
   canCreate: boolean;
   sending: boolean;
+  isCreateOpen?: boolean;
+  onToggleCreate?: (open: boolean) => void;
 }
 
-export default function PollSection({ polls, onCreatePoll, onVotePoll, canCreate, sending }: PollSectionProps) {
+export default function PollSection({
+  polls,
+  onCreatePoll,
+  onVotePoll,
+  onDeletePoll,
+  canCreate,
+  sending,
+  isCreateOpen,
+  onToggleCreate,
+}: PollSectionProps) {
   const { auth } = usePage<SharedProps>().props;
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [internalCreateForm, setInternalCreateForm] = useState(false);
+  const showCreateForm = isCreateOpen !== undefined ? isCreateOpen : internalCreateForm;
+
+  const setShowCreateForm = (open: boolean) => {
+    if (onToggleCreate) {
+      onToggleCreate(open);
+    } else {
+      setInternalCreateForm(open);
+    }
+  };
+
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [votingPoll, setVotingPoll] = useState<string | null>(null);
@@ -49,7 +71,7 @@ export default function PollSection({ polls, onCreatePoll, onVotePoll, canCreate
     setVotingPoll(null);
   };
 
-  if (polls.length === 0 && !canCreate) return null;
+  if (polls.length === 0 && !showCreateForm) return null;
 
   return (
     <div className="mb-4">
@@ -270,15 +292,36 @@ export default function PollSection({ polls, onCreatePoll, onVotePoll, canCreate
 
                 {/* Poll Footer */}
                 <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/80">
-                  <span className="text-[10px] font-mono text-slate-500">
-                    {poll.total_votes} vote{poll.total_votes !== 1 ? 's' : ''}
-                    {' · '}
-                    by {poll.creator.display_name}
-                  </span>
-                  <span className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
-                    <Clock size={10} />
-                    <span>{poll.created_at}</span>
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-mono text-slate-500">
+                    <span>{poll.total_votes} vote{poll.total_votes !== 1 ? 's' : ''}</span>
+                    <span>·</span>
+                    <span>by {poll.creator.display_name}</span>
+                    {poll.creator.is_admin && (
+                      <span className="px-1.5 py-0.2 rounded bg-amber-950/80 border border-amber-500/40 text-[9px] text-amber-300 font-mono">
+                        ADMIN
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
+                      <Clock size={10} />
+                      <span>{poll.created_at}</span>
+                    </span>
+                    {onDeletePoll && auth.user && (auth.user.role === 'SUPER_ADMIN' || (poll.creator.public_id && auth.user.public_id === poll.creator.public_id)) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this poll?')) {
+                            void onDeletePoll(poll.public_id);
+                          }
+                        }}
+                        className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-950/50 transition cursor-pointer"
+                        title="Delete poll"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

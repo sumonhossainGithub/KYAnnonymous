@@ -3,9 +3,17 @@
 return [
     'driver' => env('HASH_DRIVER', 'bcrypt'),
 
-    'argon' => [
-        'memory' => 65536,
-        'threads' => 2,
-        'time' => 3,
+    'bcrypt' => [
+        'rounds' => env('BCRYPT_ROUNDS', 12),
+        'verify' => true,
     ],
+
+    'argon' => [
+        'memory' => env('ARGON_MEMORY', 65536),
+        'threads' => env('ARGON_THREADS', 2),
+        'time' => env('ARGON_TIME', 3),
+        'verify' => true,
+    ],
+
+    'rehash_on_login' => true,
 ];

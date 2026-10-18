@@ -9,10 +9,18 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('chat_messages', function (Blueprint $table) {
-            $table->string('file_url')->nullable()->after('butterfly_count');
-            $table->string('file_name')->nullable()->after('file_url');
-            $table->string('file_type')->nullable()->after('file_name');
-            $table->unsignedBigInteger('file_size')->nullable()->after('file_type');
+            if (!Schema::hasColumn('chat_messages', 'file_url')) {
+                $table->string('file_url')->nullable();
+            }
+            if (!Schema::hasColumn('chat_messages', 'file_name')) {
+                $table->string('file_name')->nullable();
+            }
+            if (!Schema::hasColumn('chat_messages', 'file_type')) {
+                $table->string('file_type')->nullable();
+            }
+            if (!Schema::hasColumn('chat_messages', 'file_size')) {
+                $table->unsignedBigInteger('file_size')->nullable();
+            }
         });
     }
 

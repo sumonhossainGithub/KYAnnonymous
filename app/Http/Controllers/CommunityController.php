@@ -492,6 +492,7 @@ class CommunityController extends Controller
 
         $polls = [];
         try {
+            $this->ensurePollTablesExist();
             $polls = Poll::with(['votes', 'creator'])
                 ->where('chat_room_id', $room->id)
                 ->where('is_active', true)
@@ -512,7 +513,9 @@ class CommunityController extends Controller
                         'total_votes' => array_sum($results),
                         'user_vote' => $userVote ? $userVote->option_index : null,
                         'creator' => [
+                            'public_id' => $poll->creator ? $poll->creator->public_id : null,
                             'display_name' => $poll->creator ? $poll->creator->display_name : 'Anonymous',
+                            'is_admin' => $poll->creator ? $poll->creator->isSuperAdmin() : false,
                         ],
                     ];
                 });
@@ -581,6 +584,8 @@ class CommunityController extends Controller
         $message = ChatMessage::where('chat_room_id', $room->id)->where('public_id', $public_id)->firstOrFail();
         $user = $request->user();
         $userReactKey = $user ? "u_{$user->id}" : 'g_' . substr((string) session()->getId(), 0, 8);
+
+        $this->ensurePollTablesExist();
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($message, $userReactKey) {
             $existing = \Illuminate\Support\Facades\DB::table('chat_message_reactions')
@@ -686,9 +691,73 @@ class CommunityController extends Controller
         return back()->with('success', 'Report received. Our moderation team will inspect this content.');
     }
 
+    protected function ensurePollTablesExist(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('polls')) {
+            \Illuminate\Support\Facades\Schema::create('polls', function (\Illuminate\Database\Schema\Blueprint $table) {
+                $table->id();
+                $table->string('public_id', 26)->unique();
+                $table->foreignId('chat_room_id')->constrained('chat_rooms')->cascadeOnDelete();
+                $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+                $table->string('question', 255);
+                $table->json('options');
+                $table->timestamp('expires_at')->nullable();
+                $table->boolean('is_active')->default(true);
+                $table->timestamps();
+
+                $table->index(['chat_room_id', 'is_active']);
+            });
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::hasTable('poll_votes')) {
+            \Illuminate\Support\Facades\Schema::create('poll_votes', function (\Illuminate\Database\Schema\Blueprint $table) {
+                $table->id();
+                $table->foreignId('poll_id')->constrained('polls')->cascadeOnDelete();
+                $table->tinyInteger('option_index')->unsigned();
+                $table->string('voter_key', 64);
+                $table->timestamp('created_at')->nullable();
+
+                $table->unique(['poll_id', 'voter_key']);
+            });
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::hasTable('chat_message_reactions')) {
+            \Illuminate\Support\Facades\Schema::create('chat_message_reactions', function (\Illuminate\Database\Schema\Blueprint $table) {
+                $table->id();
+                $table->foreignId('chat_message_id')->constrained('chat_messages')->cascadeOnDelete();
+                $table->string('user_id');
+                $table->timestamp('created_at')->nullable();
+                $table->index(['chat_message_id', 'user_id']);
+            });
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('chat_messages')) {
+            \Illuminate\Support\Facades\Schema::table('chat_messages', function (\Illuminate\Database\Schema\Blueprint $table) {
+                if (!\Illuminate\Support\Facades\Schema::hasColumn('chat_messages', 'butterfly_count')) {
+                    $table->unsignedInteger('butterfly_count')->default(0);
+                }
+                if (!\Illuminate\Support\Facades\Schema::hasColumn('chat_messages', 'file_url')) {
+                    $table->string('file_url')->nullable();
+                }
+                if (!\Illuminate\Support\Facades\Schema::hasColumn('chat_messages', 'file_name')) {
+                    $table->string('file_name')->nullable();
+                }
+                if (!\Illuminate\Support\Facades\Schema::hasColumn('chat_messages', 'file_type')) {
+                    $table->string('file_type')->nullable();
+                }
+                if (!\Illuminate\Support\Facades\Schema::hasColumn('chat_messages', 'file_size')) {
+                    $table->unsignedBigInteger('file_size')->nullable();
+                }
+            });
+        }
+    }
+
     public function createPoll(Request $request, string $slug)
     {
-        abort_unless($request->user()->status === 'ACTIVE', 403, 'Account is suspended.');
+        $user = $request->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->status === 'ACTIVE'), 403, 'Account is suspended.');
+
+        $this->ensurePollTablesExist();
 
         $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
 
@@ -703,7 +772,7 @@ class CommunityController extends Controller
 
         Poll::create([
             'chat_room_id' => $room->id,
-            'user_id' => $request->user()->id,
+            'user_id' => $user->id,
             'question' => trim(strip_tags($data['question'])),
             'options' => array_map(fn ($opt) => trim(strip_tags($opt)), $data['options']),
             'expires_at' => $expiresAt,
@@ -714,6 +783,8 @@ class CommunityController extends Controller
 
     public function votePoll(Request $request, string $slug, string $pollPublicId)
     {
+        $this->ensurePollTablesExist();
+
         $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
 
         $poll = Poll::where('public_id', $pollPublicId)
@@ -743,6 +814,34 @@ class CommunityController extends Controller
             'voter_key' => $voterKey,
             'created_at' => now(),
         ]);
+
+        return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
+    }
+
+    public function deletePoll(Request $request, string $slug, string $pollPublicId)
+    {
+        $this->ensurePollTablesExist();
+
+        $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        $poll = Poll::where('public_id', $pollPublicId)->where('chat_room_id', $room->id)->firstOrFail();
+
+        $user = $request->user();
+        abort_unless($user && ($user->isSuperAdmin() || $user->id === $poll->user_id), 403, 'Unauthorized.');
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($poll, $user) {
+            PollVote::where('poll_id', $poll->id)->delete();
+            $poll->delete();
+
+            if ($user->isSuperAdmin()) {
+                \App\Models\AdminAuditLog::create([
+                    'admin_id' => $user->id,
+                    'action' => 'POLL_REMOVED',
+                    'target_type' => 'poll',
+                    'target_public_id' => $poll->public_id,
+                    'created_at' => now(),
+                ]);
+            }
+        });
 
         return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
     }

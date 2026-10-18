@@ -11,22 +11,28 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('posts', function (Blueprint $table) {
-            $table->boolean('is_ghost')->default(false)->after('status');
-            $table->string('alias_name', 50)->nullable()->after('is_ghost');
-        });
+        if (!Schema::hasColumn('posts', 'is_ghost')) {
+            Schema::table('posts', function (Blueprint $table) {
+                $table->boolean('is_ghost')->default(false);
+                $table->string('alias_name', 50)->nullable();
+            });
+        }
 
-        Schema::table('chat_messages', function (Blueprint $table) {
-            $table->boolean('is_ghost')->default(false)->after('message');
-            $table->string('alias_name', 50)->nullable()->after('is_ghost');
-        });
+        if (!Schema::hasColumn('chat_messages', 'is_ghost')) {
+            Schema::table('chat_messages', function (Blueprint $table) {
+                $table->boolean('is_ghost')->default(false);
+                $table->string('alias_name', 50)->nullable();
+            });
+        }
 
-        Schema::create('app_settings', function (Blueprint $table) {
-            $table->id();
-            $table->string('key', 100)->unique();
-            $table->text('value')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('app_settings')) {
+            Schema::create('app_settings', function (Blueprint $table) {
+                $table->id();
+                $table->string('key', 100)->unique();
+                $table->text('value')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**
