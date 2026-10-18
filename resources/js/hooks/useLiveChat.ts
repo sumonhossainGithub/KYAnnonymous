@@ -206,6 +206,7 @@ export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], si
     remove: (publicId: string) => write(`/admin/chat/${encodeURIComponent(slug)}/messages/${publicId}`, 'DELETE'),
     createPoll: (data: { question: string; options: string[] }) => write(`/chat/${encodeURIComponent(slug)}/polls`, 'POST', data),
     votePoll: (pollPublicId: string, optionIndex: number) => write(`/chat/${encodeURIComponent(slug)}/polls/${pollPublicId}/vote`, 'POST', { option_index: optionIndex }),
+    retractPollVote: (pollPublicId: string) => write(`/chat/${encodeURIComponent(slug)}/polls/${pollPublicId}/retract`, 'POST'),
     deletePoll: (pollPublicId: string) => write(`/chat/${encodeURIComponent(slug)}/polls/${pollPublicId}`, 'DELETE'),
   };
 }

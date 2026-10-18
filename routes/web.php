@@ -23,6 +23,7 @@ Route::post('/chat/{slug}/typing', [CommunityController::class, 'recordTyping'])
 Route::post('/chat/{slug}/unlock', [CommunityController::class, 'unlockChatRoom'])->name('chat.room.unlock')->middleware('not_banned');
 Route::post('/chat/{slug}/polls', [CommunityController::class, 'createPoll'])->middleware(['auth', 'not_banned']);
 Route::post('/chat/{slug}/polls/{pollPublicId}/vote', [CommunityController::class, 'votePoll'])->middleware('not_banned');
+Route::post('/chat/{slug}/polls/{pollPublicId}/retract', [CommunityController::class, 'retractVote'])->middleware('not_banned');
 Route::delete('/chat/{slug}/polls/{pollPublicId}', [CommunityController::class, 'deletePoll'])->middleware(['auth', 'not_banned']);
 
 // Guest Authentication Routes

@@ -181,4 +181,56 @@ class PollTest extends TestCase
         $res->assertStatus(200);
         $this->assertDatabaseMissing('polls', ['public_id' => $poll->public_id]);
     }
+
+    public function test_telegram_poll_has_24_hour_duration_and_supports_10_options(): void
+    {
+        $options = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+
+        $res = $this->actingAs($this->user)->postJson("/chat/{$this->room->slug}/polls", [
+            'question' => 'Telegram 10 options question?',
+            'options' => $options,
+        ]);
+        $res->assertStatus(201);
+
+        $poll = Poll::where('question', 'Telegram 10 options question?')->first();
+        $this->assertNotNull($poll);
+        $this->assertCount(10, $poll->options);
+        $this->assertNotNull($poll->expires_at);
+        $this->assertEquals(24, (int) round(now()->diffInHours($poll->expires_at)));
+        $this->assertFalse($poll->isExpired());
+    }
+
+    public function test_user_can_retract_vote_on_telegram_poll(): void
+    {
+        $poll = Poll::create([
+            'chat_room_id' => $this->room->id,
+            'user_id' => $this->user->id,
+            'question' => 'Can vote be retracted?',
+            'options' => ['Option 1', 'Option 2'],
+            'expires_at' => now()->addHours(24),
+        ]);
+
+        // Vote
+        $this->actingAs($this->user)->postJson("/chat/{$this->room->slug}/polls/{$poll->public_id}/vote", [
+            'option_index' => 0,
+        ])->assertStatus(200);
+
+        $this->assertEquals(1, $poll->votes()->count());
+
+        // Retract vote
+        $this->actingAs($this->user)->postJson("/chat/{$this->room->slug}/polls/{$poll->public_id}/retract")
+            ->assertStatus(200);
+
+        $this->assertEquals(0, $poll->votes()->count());
+
+        // Vote again on the other option
+        $this->actingAs($this->user)->postJson("/chat/{$this->room->slug}/polls/{$poll->public_id}/vote", [
+            'option_index' => 1,
+        ])->assertStatus(200);
+
+        $this->assertEquals(1, $poll->votes()->count());
+        $results = $poll->tallyResults();
+        $this->assertEquals(0, $results[0]);
+        $this->assertEquals(1, $results[1]);
+    }
 }

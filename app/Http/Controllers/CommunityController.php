@@ -763,18 +763,18 @@ class CommunityController extends Controller
 
         $data = $request->validate([
             'question' => ['required', 'string', 'max:200'],
-            'options' => ['required', 'array', 'min:2', 'max:6'],
+            'options' => ['required', 'array', 'min:2', 'max:10'],
             'options.*' => ['required', 'string', 'max:100'],
-            'expires_in_hours' => ['nullable', 'integer', 'min:1', 'max:168'],
         ]);
 
-        $expiresAt = now()->addHours($data['expires_in_hours'] ?? 24);
+        // Each poll runs for exactly 24 hours like Telegram
+        $expiresAt = now()->addHours(24);
 
         Poll::create([
             'chat_room_id' => $room->id,
             'user_id' => $user->id,
             'question' => trim(strip_tags($data['question'])),
-            'options' => array_map(fn ($opt) => trim(strip_tags($opt)), $data['options']),
+            'options' => array_values(array_filter(array_map(fn ($opt) => trim(strip_tags($opt)), $data['options']))),
             'expires_at' => $expiresAt,
         ]);
 
@@ -793,7 +793,7 @@ class CommunityController extends Controller
             ->firstOrFail();
 
         if ($poll->isExpired()) {
-            throw ValidationException::withMessages(['poll' => 'This poll has expired.']);
+            throw ValidationException::withMessages(['poll' => 'This 24-hour poll has closed.']);
         }
 
         $data = $request->validate([
@@ -814,6 +814,28 @@ class CommunityController extends Controller
             'voter_key' => $voterKey,
             'created_at' => now(),
         ]);
+
+        return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
+    }
+
+    public function retractVote(Request $request, string $slug, string $pollPublicId)
+    {
+        $this->ensurePollTablesExist();
+
+        $room = ChatRoom::where('slug', $slug)->where('is_active', true)->firstOrFail();
+        $poll = Poll::where('public_id', $pollPublicId)
+            ->where('chat_room_id', $room->id)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        if ($poll->isExpired()) {
+            throw ValidationException::withMessages(['poll' => 'This 24-hour poll has closed.']);
+        }
+
+        $user = $request->user();
+        $voterKey = $user ? "u_{$user->id}" : 'g_' . substr((string) session()->getId(), 0, 8);
+
+        PollVote::where('poll_id', $poll->id)->where('voter_key', $voterKey)->delete();
 
         return response()->json($this->chatPayload($request, $room))->header('Cache-Control', 'no-store');
     }

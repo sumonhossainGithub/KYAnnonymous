@@ -293,6 +293,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                 polls={live.polls}
                 onCreatePoll={live.createPoll}
                 onVotePoll={live.votePoll}
+                onRetractPollVote={live.retractPollVote}
                 onDeletePoll={live.deletePoll}
                 canCreate={Boolean(auth.user)}
                 sending={live.sending}
