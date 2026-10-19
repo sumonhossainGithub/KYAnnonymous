@@ -3359,12 +3359,6 @@ textarea {
   box-sizing: border-box !important;
 }
 
-.ghost-mode-tag {
-  height: 16px !important;
-  line-height: 1 !important;
-  box-sizing: border-box !important;
-}
-
 /* Chatbox Blooming Flower Burst on Magic Reaction */
 @keyframes chatFlowerBloomFade {
   0% {

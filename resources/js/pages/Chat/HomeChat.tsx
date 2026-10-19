@@ -1094,19 +1094,15 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                   · Press Enter to send
                 </span>
               ) : (
-                <span className="text-cyan-400/70 flex items-center gap-1.5">
-                  <span>· Press Enter to send</span>
+                <span className="text-cyan-400/90 flex items-center gap-1.5">
+                  <span className="px-1.5 py-0.2 rounded bg-cyan-950 border border-cyan-600/50 text-[9px] text-cyan-300 inline-flex items-center gap-1 font-mono">
+                    <Ghost size={10} />
+                    <span>GHOST</span>
+                  </span>
+                  <span>Ghost Mode</span>
                 </span>
               )}
-              <div className="flex items-center gap-2">
-                {!auth.user && (
-                  <span className="px-1.5 py-0.2 rounded bg-cyan-950 border border-cyan-600/50 text-[9px] text-cyan-300 inline-flex items-center gap-1 font-mono">
-                    <Ghost size={9.5} />
-                    <span>Ghost Mode</span>
-                  </span>
-                )}
-                <span>{form.data.message.length}/{live.policy.message_max_length}</span>
-              </div>
+              <span>{form.data.message.length}/{live.policy.message_max_length}</span>
             </div>
           </div>
         </section>
