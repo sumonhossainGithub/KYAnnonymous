@@ -73,10 +73,17 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [isPollCreateOpen, setIsPollCreateOpen] = useState(false);
   const plusMenuRef = useRef<HTMLDivElement>(null);
-  const messageInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedPreviewUrl, setAttachedPreviewUrl] = useState<string | null>(null);
+
+  const adjustInputHeight = () => {
+    const el = messageInputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 34), 110)}px`;
+  };
 
   useEffect(() => {
     if (!showPlusMenu) return;
@@ -144,6 +151,7 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
       input.focus();
       const pos = start + emoji.length;
       input.setSelectionRange(pos, pos);
+      adjustInputHeight();
     }, 0);
   };
 
@@ -294,6 +302,16 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
       form.reset('message');
       clearAttachment();
       setUnread(false);
+      if (messageInputRef.current) {
+        messageInputRef.current.style.height = 'auto';
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void send(e as unknown as FormEvent);
     }
   };
 
@@ -318,6 +336,8 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
         <section className="conversation-panel" aria-label="Public Chatbox">
           <ChatFlowerOverlay ref={flowerRef} />
           <ChatTools
+            roomName="Chatbox"
+            roomSymbol={<MessageCircle size={16} className="text-cyan-400" />}
             search={searchTerm}
             onSearch={setSearchTerm}
             autoScroll={autoScroll}
@@ -326,18 +346,6 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             connected={connected}
             onToggleNotifications={live.setNotifications}
           />
-          <header className="conversation-header">
-            <span className="room-symbol">
-              <MessageCircle size={20} className="text-cyan-400" />
-            </span>
-            <div>
-              <h2 className="font-bold tracking-wide text-slate-100 text-sm">Chatbox</h2>
-            </div>
-            <span className={`chat-status font-mono text-[10px] ${connected ? '' : 'offline'}`}>
-              <i className="status-dot animate-ping" />
-              {connected ? 'LIVE FEED' : 'RECONNECTING…'}
-            </span>
-          </header>
 
           {/* Active Poll Slim Top Banner */}
           <ActivePollBanner
@@ -901,20 +909,21 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                     </div>
                   )}
 
-                  <input
+                  <textarea
                     ref={messageInputRef}
+                    rows={1}
                     aria-label="Your public chat message"
                     required={!attachedFile}
-                    maxLength={live.policy.message_max_length} readOnly={live.sending}
-                    autoComplete="off"
+                    maxLength={live.policy.message_max_length}
+                    readOnly={live.sending}
                     placeholder={
                       auth.user
                         ? form.data.is_ghost
                           ? '[ANONYMOUS DISGUISE ACTIVE] Type a secret message...'
                           : attachedFile
-                          ? 'Add a caption or send file... (press Enter to send)'
-                          : 'Message public chat... (press Enter to send)'
-                        : 'Type your message... (press Enter to send)'
+                          ? 'Add caption or send... (Enter to send)'
+                          : 'Message public chat... (Enter to send)'
+                        : 'Type your message... (Enter to send)'
                     }
                     value={form.data.message}
                     onChange={(e) => {
@@ -922,8 +931,10 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                       if (e.target.value.trim()) {
                         live.sendTyping(form.data.is_ghost);
                       }
+                      adjustInputHeight();
                     }}
-                    className="font-sans"
+                    onKeyDown={handleKeyDown}
+                    className="composer-textarea font-sans"
                   />
 
                   {/* Emoji Button & Picker */}
