@@ -600,58 +600,59 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
 
                     {/* Sub-chat Drawer / Nested Thread */}
                     {isSubChatOpen && (
-                      <div className="mt-3 p-3 rounded-xl bg-slate-900/70 border border-cyan-900/50 shadow-inner">
-                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs font-mono text-cyan-300">
+                      <div className="mt-1.5 p-2 rounded-xl bg-slate-950/90 border border-emerald-500/20 shadow-lg backdrop-blur-md max-w-sm">
+                        <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-emerald-500/15 text-[10px] font-mono text-emerald-300">
                           <span className="flex items-center gap-1.5">
-                            <CornerDownRight size={13} className="text-cyan-400" />
-                            <span>Sub-chat Thread ({subCount} messages)</span>
+                            <CornerDownRight size={11} className="text-emerald-400" />
+                            <span className="font-semibold tracking-wide">Thread ({subCount})</span>
                           </span>
                           <button
                             type="button"
                             onClick={() => setActiveSubChatId(null)}
-                            className="text-slate-500 hover:text-slate-300 p-0.5 rounded"
+                            className="text-slate-400 hover:text-slate-200 p-0.5 rounded cursor-pointer transition"
+                            style={{ minHeight: 'unset', minWidth: 'unset' }}
                             title="Close thread"
                           >
-                            <X size={13} />
+                            <X size={11} />
                           </button>
                         </div>
 
                         {/* List of sub-chat messages */}
                         {message.sub_chats && message.sub_chats.length > 0 ? (
-                          <div className="space-y-2 mb-3 max-h-56 overflow-y-auto pr-1">
+                          <div className="space-y-1.5 mb-2 max-h-48 overflow-y-auto pr-1">
                             {message.sub_chats.map((sub) => {
                               const isSubGhost = sub.is_ghost || sub.sender.is_ghost || sub.is_guest;
                               const isSubOwn = Boolean(sub.is_own || mySentIds.has(sub.public_id) || (auth.user && sub.sender.public_id === auth.user?.public_id));
                               return (
                                 <div
                                   key={sub.public_id}
-                                  className={`p-2 rounded-lg text-xs group transition ${
-                                    isSubOwn ? 'bg-cyan-950/40 border border-cyan-800/40' : 'bg-slate-950/60 border border-slate-800/60'
+                                  className={`p-1.5 rounded-lg text-[10.5px] group transition ${
+                                    isSubOwn ? 'bg-cyan-950/40 border border-cyan-800/40' : 'bg-slate-900/60 border border-slate-800/60'
                                   }`}
                                 >
-                                  <div className="flex items-center justify-between text-[10px] font-mono mb-1">
-                                    <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                                      <span className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center bg-slate-800 flex-shrink-0">
+                                  <div className="flex items-center justify-between text-[9px] font-mono mb-0.5">
+                                    <span className="font-semibold text-slate-300 flex items-center gap-1">
+                                      <span className="w-3.5 h-3.5 rounded-full overflow-hidden flex items-center justify-center bg-slate-800 flex-shrink-0">
                                         {isSubGhost ? (
-                                          <Ghost size={10} className="text-cyan-400" />
+                                          <Ghost size={9} className="text-cyan-400" />
                                         ) : sub.sender.avatar_url ? (
                                           <img src={sub.sender.avatar_url} alt="" className="w-full h-full object-cover" />
                                         ) : (
-                                          <span className="text-[9px] text-cyan-300 font-bold">{sub.sender.display_name.slice(0, 1).toUpperCase()}</span>
+                                          <span className="text-[8px] text-cyan-300 font-bold">{sub.sender.display_name.slice(0, 1).toUpperCase()}</span>
                                         )}
                                       </span>
                                       <span className={isSubGhost ? 'text-cyan-300' : ''}>{isSubOwn ? 'You' : sub.sender.display_name}</span>
                                     </span>
-                                    <span className="text-slate-500 opacity-60 group-hover:opacity-100 transition">{sub.created_at}</span>
+                                    <span className="text-slate-500 opacity-60 group-hover:opacity-100 transition text-[8.5px]">{sub.created_at}</span>
                                   </div>
                                   {sub.file_url && (
                                     (() => {
                                       const isSubImg = sub.file_type === 'image' || (sub.file_url && /\.(jpe?g|png|gif|webp|svg|avif|bmp)$/i.test(sub.file_url));
                                       if (isSubImg) {
                                         return (
-                                          <div className="my-1.5 ml-5 overflow-hidden rounded-lg border border-emerald-500/25 max-w-[220px]">
+                                          <div className="my-1 ml-4 overflow-hidden rounded-md border border-emerald-500/25 max-w-[200px]">
                                             <a href={sub.file_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                                              <img src={sub.file_url} alt={sub.file_name || 'Attached image'} className="max-h-40 w-auto rounded-lg object-contain" loading="lazy" />
+                                              <img src={sub.file_url} alt={sub.file_name || 'Attached image'} className="max-h-36 w-auto rounded-md object-contain" loading="lazy" />
                                             </a>
                                           </div>
                                         );
@@ -663,26 +664,27 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           onClick={(e) => e.stopPropagation()}
-                                          className="my-1.5 ml-5 inline-flex items-center gap-2 p-1.5 rounded-lg bg-slate-950/80 border border-slate-700 text-xs text-emerald-300 hover:text-white"
+                                          className="my-1 ml-4 inline-flex items-center gap-1.5 p-1 rounded-md bg-slate-950/80 border border-slate-700 text-[10px] text-emerald-300 hover:text-white"
                                         >
-                                          <FileText size={14} className="text-emerald-400 flex-shrink-0" />
-                                          <span className="truncate max-w-[140px] text-[11px]">{sub.file_name || 'File'}</span>
-                                          <Download size={12} className="text-slate-400 flex-shrink-0" />
+                                          <FileText size={12} className="text-emerald-400 flex-shrink-0" />
+                                          <span className="truncate max-w-[120px] text-[10px]">{sub.file_name || 'File'}</span>
+                                          <Download size={11} className="text-slate-400 flex-shrink-0" />
                                         </a>
                                       );
                                     })()
                                   )}
-                                  {sub.message ? <p className="text-slate-200 font-sans pl-5 whitespace-pre-wrap break-words">{sub.message}</p> : null}
+                                  {sub.message ? <p className="text-slate-200 font-sans pl-4 whitespace-pre-wrap break-words leading-relaxed text-[11px]">{sub.message}</p> : null}
                                   {auth.user?.role === 'SUPER_ADMIN' && (
                                     <button
                                       type="button"
                                       onClick={() => removeMessage(sub.public_id)}
                                       disabled={live.sending}
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 mt-1.5 rounded text-[10px] font-mono transition bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 hover:text-white"
+                                      className="inline-flex items-center gap-0.5 px-1 py-0 mt-1 rounded text-[8.5px] font-mono transition bg-rose-950/70 hover:bg-rose-900 border border-rose-500/40 text-rose-300 hover:text-white"
+                                      style={{ minHeight: 'unset', minWidth: 'unset', height: '15px' }}
                                       title="Delete reply immediately"
                                     >
-                                      <Trash2 size={10} />
-                                      <span>Delete</span>
+                                      <Trash2 size={9} />
+                                      <span>Del</span>
                                     </button>
                                   )}
                                 </div>
@@ -690,13 +692,13 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                             })}
                           </div>
                         ) : (
-                          <p className="text-[11px] text-slate-500 font-mono py-2">
-                            No sub-messages yet. Be the first to start this thread!
+                          <p className="text-[10px] text-slate-500 font-mono py-1">
+                            No replies yet. Start this thread...
                           </p>
                         )}
 
-                        {/* Sub-chat Composer */}
-                        <form aria-label="Reply thread" onSubmit={sendSubChat(message.public_id)} className="flex items-center gap-2">
+                        {/* Sub-chat Composer - Minimal, compact & premium */}
+                        <form aria-label="Reply thread" onSubmit={sendSubChat(message.public_id)} className="flex items-center gap-1.5 pt-0.5">
                           <input
                             type="text"
                             required
@@ -706,39 +708,43 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                             placeholder={
                               auth.user
                                 ? subChatForm.data.is_ghost
-                                  ? '[GHOST DISGUISE ACTIVE] Write anonymous sub-reply...'
+                                  ? '[Ghost] Write reply...'
                                   : `Reply to ${isGhost ? 'Anonymous' : message.sender.display_name}...`
-                                : `Reply as Ghost Node to ${isGhost ? 'Anonymous' : message.sender.display_name}...`
+                                : `Reply as Ghost to ${isGhost ? 'Anonymous' : message.sender.display_name}...`
                             }
-                            className="flex-1 bg-slate-950/90 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                            className="flex-1 bg-slate-900/90 border border-emerald-500/25 focus:border-emerald-400/60 rounded-md px-2 py-0 h-[26px] min-h-[26px] text-[11px] text-slate-100 placeholder-slate-500 focus:outline-none transition leading-none"
+                            style={{ fontSize: '11px' }}
                           />
 
                           {auth.user && (
                             <button
                               type="button"
                               onClick={() => subChatForm.setData('is_ghost', !subChatForm.data.is_ghost)}
-                            hidden={!live.policy.anonymous_enabled}
-                              className={`p-1.5 rounded-lg border transition ${
+                              hidden={!live.policy.anonymous_enabled}
+                              className={`h-[26px] w-[26px] p-0 rounded-md border flex items-center justify-center flex-shrink-0 transition cursor-pointer ${
                                 subChatForm.data.is_ghost
                                   ? 'bg-cyan-950 border-cyan-500 text-cyan-300'
                                   : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
                               }`}
+                              style={{ minHeight: 'unset', minWidth: 'unset' }}
                               title={
                                 subChatForm.data.is_ghost
-                                  ? 'Ghost disguise active: Hiding your username in this sub-reply'
-                                  : 'Enable Ghost disguise: Reply anonymously'
+                                  ? 'Ghost disguise active'
+                                  : 'Enable Ghost disguise'
                               }
                             >
-                              <Ghost size={14} />
+                              <Ghost size={12} />
                             </button>
                           )}
 
                           <button
                             type="submit"
                             disabled={!live.policy.can_send || !live.policy.replies_enabled || live.sending || !subChatForm.data.message.trim()}
-                            className="button button-small !py-1 !px-2.5 !text-[10px]"
+                            className="subchat-submit-btn inline-flex items-center justify-center gap-1 px-2.5 rounded-md bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-slate-950 font-mono font-semibold text-[9.5px] transition shadow-[0_0_8px_rgba(52,211,153,0.3)] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex-shrink-0 h-[26px] select-none"
+                            style={{ minHeight: 'unset', minWidth: 'unset', height: '26px' }}
                           >
                             <span>Reply</span>
+                            <Send size={9.5} />
                           </button>
                         </form>
                       </div>

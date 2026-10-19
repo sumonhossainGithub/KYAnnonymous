@@ -3073,6 +3073,7 @@ textarea {
   .chat-unified-bar button,
   .strip-notify-btn,
   .chat-reply-btn,
+  .subchat-submit-btn,
   .butterfly-react-corner {
     min-height: 0 !important;
     min-width: 0 !important;
@@ -3331,6 +3332,17 @@ textarea {
   padding: 0 !important;
   box-shadow: none !important;
   outline: none !important;
+}
+
+.subchat-submit-btn {
+  min-height: 0 !important;
+  min-width: 0 !important;
+  height: 26px !important;
+  padding: 0 10px !important;
+  font-size: 9.5px !important;
+  line-height: 26px !important;
+  border: none !important;
+  box-sizing: border-box !important;
 }
 
 /* Chatbox Blooming Flower Burst on Magic Reaction */
