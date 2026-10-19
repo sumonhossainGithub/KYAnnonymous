@@ -508,7 +508,7 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
 
               return (
                 <article
-                  className={`chat-message ${own ? 'own' : ''}`}
+                  className={`chat-message group/msg ${own ? 'own' : ''}`}
                   key={message.public_id}
                 >
                   <span className="message-avatar font-mono overflow-hidden">
@@ -532,7 +532,7 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                     </div>
 
                     {/* Bubble and Action buttons placed side-by-side */}
-                    <div className={`flex items-end gap-2 ${own ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`flex items-start gap-1.5 ${own ? 'flex-row-reverse' : 'flex-row'}`}>
                       <div className={`flex flex-col ${own ? 'items-end' : 'items-start'}`}>
                         <div
                           data-message-id={message.public_id}
@@ -545,29 +545,6 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                           }}
                           title="Double-tap to magic butterfly · Click to view timestamp"
                         >
-                          {/* Pure butterfly reaction on message upper corner (only the butterfly, no button box, no unreacted shade) */}
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleButterflyReact(message, e.currentTarget);
-                            }}
-                            className={`butterfly-react-corner absolute -top-2.5 right-1 z-10 select-none cursor-pointer inline-flex items-center gap-0.5 transition-all transform active:scale-125 ${
-                              (message.butterfly_count ?? 0) > 0
-                                ? 'opacity-100 scale-100 filter drop-shadow-[0_0_6px_rgba(52,211,153,0.7)]'
-                                : `opacity-0 group-hover/bubble:opacity-80 hover:!opacity-100 scale-90 hover:scale-105 ${
-                                    message.public_id === touchedMessageId ? '!opacity-80' : ''
-                                  }`
-                            }`}
-                            style={{ minHeight: 'unset', minWidth: 'unset', background: 'transparent', border: 'none' }}
-                            title="Butterfly React (click to react)"
-                          >
-                            <span className="text-[12px] leading-none animate-butterflyBreathe">🦋</span>
-                            {(message.butterfly_count ?? 0) > 0 && (
-                              <span className="text-[8.5px] font-mono font-bold text-emerald-300 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-                                {message.butterfly_count}
-                              </span>
-                            )}
-                          </span>
 
                           {/* Message Attachment (Image or File) */}
                           {message.file_url && (
@@ -637,8 +614,31 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                         )}
                       </div>
 
-                      {/* Action buttons on the side of the message */}
-                      <div className="flex items-center gap-1">
+                      {/* Action buttons on the side of the message - aligned with 1st line */}
+                      <div className={`flex items-center gap-1.5 self-start pt-1 flex-shrink-0 ${own ? 'flex-row-reverse' : 'flex-row'}`}>
+                        {/* Butterfly React on right side of message - aligned with 1st line */}
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleButterflyReact(message, e.currentTarget);
+                          }}
+                          className={`butterfly-react-corner select-none cursor-pointer inline-flex items-center gap-0.5 transition-all transform active:scale-125 ${
+                            (message.butterfly_count ?? 0) > 0
+                              ? 'opacity-100 scale-100 filter drop-shadow-[0_0_6px_rgba(52,211,153,0.7)]'
+                              : `opacity-0 group-hover/msg:opacity-90 hover:!opacity-100 scale-95 hover:scale-110 ${
+                                  message.public_id === touchedMessageId ? '!opacity-90' : ''
+                                }`
+                          }`}
+                          style={{ minHeight: 'unset', minWidth: 'unset', background: 'transparent', border: 'none' }}
+                          title="Butterfly React (click to react)"
+                        >
+                          <span className="text-[13px] leading-none animate-butterflyBreathe">🦋</span>
+                          {(message.butterfly_count ?? 0) > 0 && (
+                            <span className="text-[9px] font-mono font-bold text-emerald-300 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                              {message.butterfly_count}
+                            </span>
+                          )}
+                        </span>
 
                         {/* Ultra-compact Reply button on the side of the message */}
                         <button
