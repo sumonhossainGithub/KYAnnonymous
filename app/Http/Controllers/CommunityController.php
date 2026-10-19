@@ -276,6 +276,19 @@ class CommunityController extends Controller
         }
     }
 
+    protected function formatMessageTime(\Carbon\CarbonInterface $createdAt): string
+    {
+        // 12-hour format with AM/PM (e.g. 4:30 PM)
+        // If 24 hours or older: Date and 12-hour time (e.g. Oct 18, 4:30 PM)
+        if ($createdAt->diffInHours(now()) < 24) {
+            return $createdAt->format('g:i A');
+        }
+
+        return $createdAt->isCurrentYear()
+            ? $createdAt->format('M j, g:i A')
+            : $createdAt->format('M j, Y, g:i A');
+    }
+
     protected function loadMessagesForRoom(int $roomId, bool $adminStealth, ?int $userId = null)
     {
         // Public chat retention: all messages (logged in or guest) remain available for 30 days (throttled to once per hour)
@@ -308,7 +321,8 @@ class CommunityController extends Controller
                         'public_id' => $sub->public_id,
                         'parent_public_id' => $m->public_id,
                         'message' => $sub->message,
-                        'created_at' => $sub->created_at->isToday() ? $sub->created_at->format('H:i') : $sub->created_at->format('M j, H:i'),
+                        'created_at' => $this->formatMessageTime($sub->created_at),
+                        'raw_created_at' => $sub->created_at->getTimestamp(),
                         'is_ghost' => (bool) ($sub->is_ghost ?? false),
                         'is_guest' => (bool) ($sub->is_guest ?? false),
                         'is_own' => $isSubOwn,
@@ -323,7 +337,7 @@ class CommunityController extends Controller
                 return [
                     'public_id' => $m->public_id,
                     'message' => $m->message,
-                    'created_at' => $m->created_at->isToday() ? $m->created_at->format('H:i') : $m->created_at->format('M j, H:i'),
+                    'created_at' => $this->formatMessageTime($m->created_at),
                     'raw_created_at' => $m->created_at->getTimestamp(),
                     'is_ghost' => (bool) ($m->is_ghost ?? false),
                     'is_guest' => (bool) ($m->is_guest ?? false),

@@ -112,6 +112,7 @@ export interface ChatSubMessage {
   parent_public_id: string;
   message: string;
   created_at: string;
+  raw_created_at?: number;
   is_ghost?: boolean;
   is_guest?: boolean;
   is_own?: boolean;

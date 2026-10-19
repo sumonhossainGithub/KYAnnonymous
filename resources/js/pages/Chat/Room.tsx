@@ -28,6 +28,7 @@ import EmojiPicker from '@/components/EmojiPicker';
 import GardenButterflyOverlay, { type GardenButterflyRef } from '@/components/GardenButterflyOverlay';
 import ChatFlowerOverlay, { type ChatFlowerRef } from '@/components/ChatFlowerOverlay';
 import { PollCard, PollCreateModal, ActivePollBanner } from '@/components/PollSection';
+import { formatMessageTime } from '@/lib/utils';
 
 interface Props {
   room: ChatRoomSummary;
@@ -637,7 +638,7 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                           )}
 
                           {message.message ? <p className="whitespace-pre-wrap break-words">{message.message}</p> : null}
-                          <time className="font-mono text-[10px]">{message.created_at}</time>
+                          <time className="font-mono text-[10px]">{formatMessageTime(message.raw_created_at, message.created_at)}</time>
                         </div>
 
                         {/* Hint just under the last message */}
@@ -750,7 +751,7 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                                       </span>
                                       <span className={isSubGhost ? 'text-cyan-300' : ''}>{isSubOwn ? 'You' : sub.sender.display_name}</span>
                                     </span>
-                                    <span className="text-slate-500 opacity-60 group-hover:opacity-100 transition text-[8.5px]">{sub.created_at}</span>
+                                    <span className="text-slate-500 opacity-60 group-hover:opacity-100 transition text-[8.5px]">{formatMessageTime(sub.raw_created_at, sub.created_at)}</span>
                                   </div>
                                   {sub.file_url && (
                                     (() => {
