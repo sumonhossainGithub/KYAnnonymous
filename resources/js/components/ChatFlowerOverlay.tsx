@@ -46,10 +46,10 @@ export const ChatFlowerOverlay = forwardRef<ChatFlowerRef>((_, ref) => {
   const [ambientFlowers, setAmbientFlowers] = useState<AmbientFlower[]>([]);
   const [blooms, setBlooms] = useState<BloomFlowerInstance[]>([]);
 
-  // Generate subtle ambient floating flowers (lightweight 4 petals)
+  // Generate rich ambient floating flowers across the chat canvas
   useEffect(() => {
     const list: AmbientFlower[] = [];
-    const count = 4;
+    const count = 10;
     for (let i = 0; i < count; i++) {
       const palette = FLOWER_PALETTES[i % FLOWER_PALETTES.length];
       const type = FLOWER_TYPES[i % FLOWER_TYPES.length];
@@ -57,12 +57,12 @@ export const ChatFlowerOverlay = forwardRef<ChatFlowerRef>((_, ref) => {
         id: i,
         left: Math.random() * 92 + 4,
         top: Math.random() * 90 + 5,
-        size: Math.floor(Math.random() * 10) + 12,
+        size: Math.floor(Math.random() * 8) + 14,
         type,
         color: palette.color,
         glow: palette.glow,
-        duration: Math.random() * 4 + 10,
-        delay: Math.random() * 4,
+        duration: Math.random() * 5 + 12,
+        delay: Math.random() * 6,
       });
     }
     setAmbientFlowers(list);
@@ -78,11 +78,11 @@ export const ChatFlowerOverlay = forwardRef<ChatFlowerRef>((_, ref) => {
     }
 
     const newBlooms: BloomFlowerInstance[] = [];
-    const count = 3;
+    const count = 6;
 
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
-      const dist = Math.random() * 30 + 15;
+      const dist = Math.random() * 45 + 20;
       const palette = FLOWER_PALETTES[Math.floor(Math.random() * FLOWER_PALETTES.length)];
       const type = FLOWER_TYPES[Math.floor(Math.random() * FLOWER_TYPES.length)];
 
@@ -91,8 +91,8 @@ export const ChatFlowerOverlay = forwardRef<ChatFlowerRef>((_, ref) => {
         x,
         y,
         dx: Math.cos(angle) * dist,
-        dy: Math.sin(angle) * dist - 15,
-        size: Math.random() * 8 + 12,
+        dy: Math.sin(angle) * dist - 20,
+        size: Math.random() * 8 + 14,
         type,
         color: palette.color,
         glow: palette.glow,
@@ -105,7 +105,7 @@ export const ChatFlowerOverlay = forwardRef<ChatFlowerRef>((_, ref) => {
     setTimeout(() => {
       const idsToRemove = new Set(newBlooms.map((b) => b.id));
       setBlooms((prev) => prev.filter((b) => !idsToRemove.has(b.id)));
-    }, 1200);
+    }, 2200);
   }, []);
 
   useImperativeHandle(ref, () => ({

@@ -68,23 +68,24 @@ export default function NotificationToggle({ onToggle }: NotificationToggleProps
     <button
       type="button"
       onClick={handleToggle}
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono transition border flex-shrink-0 whitespace-nowrap cursor-pointer ${
+      className={`strip-notify-btn inline-flex items-center gap-1 px-1 py-0 rounded text-[8.5px] font-mono transition flex-shrink-0 whitespace-nowrap cursor-pointer ${
         enabled
-          ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.3)]'
+          ? 'text-emerald-300 hover:text-emerald-200'
           : permission === 'denied'
-          ? 'bg-slate-900/60 border-rose-500/30 text-rose-400 cursor-not-allowed'
-          : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-emerald-300 hover:border-emerald-500/40'
+          ? 'text-rose-400/80 cursor-not-allowed'
+          : 'text-slate-400 hover:text-emerald-300'
       }`}
+      style={{ minHeight: 'unset', minWidth: 'unset', height: '16px', lineHeight: '16px', background: 'transparent', border: 'none' }}
       title={
         enabled
           ? 'Notifications ON – Click to turn off'
           : permission === 'denied'
           ? 'Notifications blocked – Allow in browser settings'
-          : 'Turn on notifications to receive alerts even when minimized'
+          : 'Turn on notifications'
       }
     >
-      <Icon size={11} className="flex-shrink-0" />
-      <span className="text-[9px]">{enabled ? 'ON' : 'Notify'}</span>
+      <Icon size={10} className="flex-shrink-0" />
+      <span className="text-[8.5px] leading-none tracking-tight">{enabled ? 'Notify ON' : 'Notify'}</span>
     </button>
   );
 }

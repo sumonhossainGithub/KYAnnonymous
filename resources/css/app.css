@@ -1553,17 +1553,28 @@ textarea {
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(52, 211, 153, 0.15);
 }
 
-.conversation-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 3px 8px;
-  border-bottom: 1px solid rgba(52, 211, 153, 0.2);
-  background: rgba(3, 12, 10, 0.95);
-  flex-shrink: 0;
-  flex-wrap: nowrap;
-  min-height: 28px;
+.conversation-header,
+.chat-unified-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 4px !important;
+  padding: 1px 8px !important;
+  border-bottom: 1px solid rgba(52, 211, 153, 0.18) !important;
+  background: rgba(3, 12, 10, 0.95) !important;
+  flex-shrink: 0 !important;
+  flex-wrap: nowrap !important;
+  min-height: 22px !important;
+  height: 22px !important;
+  max-height: 22px !important;
+  line-height: 1 !important;
+}
+
+.conversation-header button,
+.chat-unified-bar button {
+  min-height: 0 !important;
+  min-width: 0 !important;
+  height: auto !important;
 }
 
 .conversation-header>div {
@@ -3051,8 +3062,21 @@ textarea {
     padding: 6px 8px !important;
     border-radius: 9px !important;
   }
-  .conversation-compose .button span { display: none; }
-  .conversation-header { padding: 6px 8px !important; }
+  .conversation-header,
+  .chat-unified-bar {
+    padding: 1px 6px !important;
+    min-height: 22px !important;
+    height: 22px !important;
+    max-height: 22px !important;
+  }
+  .conversation-header button,
+  .chat-unified-bar button,
+  .strip-notify-btn,
+  .chat-reply-btn,
+  .butterfly-react-corner {
+    min-height: 0 !important;
+    min-width: 0 !important;
+  }
   .conversation-stream { padding: 6px 8px 4px !important; }
   .conversation-start h2 { font-size: 15px; }
   .chat-message { margin: 4px 0 0 !important; gap: 6px !important; }
@@ -3287,10 +3311,26 @@ textarea {
   pointer-events: none;
 }
 
-@media (max-width: 768px) {
-  .chat-flower-ambient {
-    display: none !important;
-  }
+.chat-reply-btn {
+  min-height: 0 !important;
+  min-width: 0 !important;
+  height: 16px !important;
+  padding: 0 4px !important;
+  font-size: 8px !important;
+  line-height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  border-radius: 4px !important;
+}
+
+.butterfly-react-corner {
+  min-height: 0 !important;
+  min-width: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 /* Chatbox Blooming Flower Burst on Magic Reaction */

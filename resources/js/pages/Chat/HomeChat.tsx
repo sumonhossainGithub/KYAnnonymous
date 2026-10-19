@@ -471,20 +471,27 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                           }}
                           title="Double-tap to magic butterfly · Click to view timestamp"
                         >
-                          {/* Perched Garden Butterfly sitting on the message */}
-                          {(message.butterfly_count ?? 0) > 0 && (
-                            <span
-                              className={`perched-butterfly absolute -bottom-2.5 ${own ? 'left-1' : 'right-1'} px-1.5 py-0.2 rounded-full bg-emerald-950/95 border border-emerald-400/50 text-[9px] font-mono text-emerald-200 shadow-[0_0_8px_rgba(52,211,153,0.35)] flex items-center gap-0.5 z-10 cursor-pointer`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleButterflyReact(message, e.currentTarget);
-                              }}
-                              title="Butterfly reaction · Double-tap to react"
-                            >
-                              <span className="text-[11px]">🦋</span>
-                              <span className="text-[9px] font-bold">{message.butterfly_count}</span>
-                            </span>
-                          )}
+                          {/* Pure butterfly reaction on message right corner (only the butterfly, not the button) */}
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleButterflyReact(message, e.currentTarget);
+                            }}
+                            className={`butterfly-react-corner absolute -bottom-2 right-1 z-10 select-none cursor-pointer inline-flex items-center gap-0.5 transition-all transform active:scale-125 ${
+                              (message.butterfly_count ?? 0) > 0
+                                ? 'opacity-100 scale-100'
+                                : 'opacity-40 hover:opacity-100 scale-90 hover:scale-105'
+                            }`}
+                            style={{ minHeight: 'unset', minWidth: 'unset', background: 'transparent', border: 'none' }}
+                            title="Butterfly React (tap to react)"
+                          >
+                            <span className="text-[12px] leading-none animate-butterflyBreathe">🦋</span>
+                            {(message.butterfly_count ?? 0) > 0 && (
+                              <span className="text-[8.5px] font-mono font-bold text-emerald-300 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                                {message.butterfly_count}
+                              </span>
+                            )}
+                          </span>
 
                           {/* Message Attachment (Image or File) */}
                           {message.file_url && (
@@ -557,19 +564,20 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                       {/* Action buttons on the side of the message */}
                       <div className="flex items-center gap-1">
 
-                        {/* Reply button on the right side of the message */}
+                        {/* Ultra-compact Reply button on the side of the message */}
                         <button
                           type="button"
                           onClick={() => setActiveSubChatId(isSubChatOpen ? null : message.public_id)}
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition text-[9.5px] font-mono flex-shrink-0 cursor-pointer ${
+                          className={`chat-reply-btn inline-flex items-center gap-0.5 px-1 py-0 rounded transition text-[8px] font-mono flex-shrink-0 cursor-pointer ${
                             isSubChatOpen
-                              ? 'bg-cyan-950 border border-cyan-500/50 text-cyan-300'
-                              : 'bg-slate-900/50 hover:bg-slate-800 border border-slate-800/80 text-slate-400 hover:text-slate-200'
+                              ? 'bg-cyan-950/80 border border-cyan-500/50 text-cyan-300'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                           }`}
+                          style={{ minHeight: 'unset', minWidth: 'unset', height: '16px', lineHeight: '16px' }}
                           title="Reply in Sub-chat"
                         >
-                          <MessageSquare size={9.5} className={subCount > 0 ? 'text-cyan-400' : ''} />
-                          <span>{subCount > 0 ? `Reply (${subCount})` : 'Reply'}</span>
+                          <MessageSquare size={8} className={subCount > 0 ? 'text-cyan-400' : ''} />
+                          <span>{subCount > 0 ? `${subCount}` : 'Reply'}</span>
                         </button>
 
                         {/* Admin Delete Button */}
