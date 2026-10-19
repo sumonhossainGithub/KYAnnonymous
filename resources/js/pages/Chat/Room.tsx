@@ -545,19 +545,21 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                           }}
                           title="Double-tap to magic butterfly · Click to view timestamp"
                         >
-                          {/* Pure butterfly reaction on message right corner (only the butterfly, not the button) */}
+                          {/* Pure butterfly reaction on message upper corner (only the butterfly, no button box, no unreacted shade) */}
                           <span
                             onClick={(e) => {
                               e.stopPropagation();
                               void handleButterflyReact(message, e.currentTarget);
                             }}
-                            className={`butterfly-react-corner absolute -bottom-2 right-1 z-10 select-none cursor-pointer inline-flex items-center gap-0.5 transition-all transform active:scale-125 ${
+                            className={`butterfly-react-corner absolute -top-2.5 right-1 z-10 select-none cursor-pointer inline-flex items-center gap-0.5 transition-all transform active:scale-125 ${
                               (message.butterfly_count ?? 0) > 0
-                                ? 'opacity-100 scale-100'
-                                : 'opacity-40 hover:opacity-100 scale-90 hover:scale-105'
+                                ? 'opacity-100 scale-100 filter drop-shadow-[0_0_6px_rgba(52,211,153,0.7)]'
+                                : `opacity-0 group-hover/bubble:opacity-80 hover:!opacity-100 scale-90 hover:scale-105 ${
+                                    message.public_id === touchedMessageId ? '!opacity-80' : ''
+                                  }`
                             }`}
                             style={{ minHeight: 'unset', minWidth: 'unset', background: 'transparent', border: 'none' }}
-                            title="Butterfly React (tap to react)"
+                            title="Butterfly React (click to react)"
                           >
                             <span className="text-[12px] leading-none animate-butterflyBreathe">🦋</span>
                             {(message.butterfly_count ?? 0) > 0 && (
