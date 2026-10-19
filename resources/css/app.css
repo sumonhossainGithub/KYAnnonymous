@@ -3074,6 +3074,7 @@ textarea {
   .strip-notify-btn,
   .chat-reply-btn,
   .subchat-submit-btn,
+  .scroll-to-bottom-btn,
   .butterfly-react-corner {
     min-height: 0 !important;
     min-width: 0 !important;
@@ -3342,6 +3343,19 @@ textarea {
   font-size: 9.5px !important;
   line-height: 26px !important;
   border: none !important;
+  box-sizing: border-box !important;
+}
+
+.scroll-to-bottom-btn {
+  min-height: 0 !important;
+  min-width: 0 !important;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 9999px !important;
   box-sizing: border-box !important;
 }
 

@@ -830,16 +830,14 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
               type="button"
               onClick={() => scrollToBottom(true)}
               aria-label="Back to newest messages"
-              className="scroll-to-bottom-btn absolute bottom-16 right-4 z-30 flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-slate-900/95 border border-cyan-500/60 text-cyan-300 shadow-[0_4px_20px_rgba(0,0,0,0.7)] backdrop-blur-md hover:bg-cyan-950 hover:text-white transition-all transform hover:scale-105 active:scale-95 cursor-pointer select-none"
+              className="scroll-to-bottom-btn absolute bottom-16 right-4 z-30 flex items-center justify-center w-8 h-8 rounded-full bg-slate-900/95 border border-cyan-500/60 text-cyan-300 shadow-[0_4px_20px_rgba(0,0,0,0.7)] backdrop-blur-md hover:bg-cyan-950 hover:text-white transition-all transform hover:scale-110 active:scale-95 cursor-pointer select-none"
               title="Jump to newest message"
             >
-              <ChevronDown size={14} className="animate-bounce" />
-              {unreadCount > 0 ? (
-                <span className="text-[10px] font-mono font-bold bg-cyan-500 text-slate-950 px-1.5 py-0.2 rounded-full leading-tight">
+              <ChevronDown size={16} className="animate-bounce" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 text-[8.5px] font-mono font-bold bg-cyan-400 text-slate-950 px-1 py-0 rounded-full leading-tight min-w-[14px] h-[14px] flex items-center justify-center shadow-md">
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
-              ) : (
-                <span className="text-[10px] font-mono font-medium">Newest</span>
               )}
             </button>
           )}
