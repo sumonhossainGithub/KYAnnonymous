@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useMemo, type FormEvent } from 'react';
 import { useForm, Link, usePage } from '@inertiajs/react';
 import { useLiveChat } from '@/hooks/useLiveChat';
 import ChatTools from '@/components/ChatTools';
@@ -49,6 +49,7 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
   const [unread, setUnread] = useState(false);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isStreamReady, setIsStreamReady] = useState(false);
   const live = useLiveChat(room.slug, initialMessages, site, !isLocked && site.chat_enabled && (!emergencyLockdown || auth.user?.role === 'SUPER_ADMIN') && (!!auth.user || site.guest_chat_enabled));
   const { messages, connected } = live;
   const [searchTerm, setSearchTerm] = useState('');
@@ -331,12 +332,45 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
 
   const latest = streamItems.at(-1)?.key;
 
+  // Prevent browser's automatic scroll restoration from jumping on refresh
   useEffect(() => {
-    if (latest === lastMessage.current) return;
-    lastMessage.current = latest;
+    if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+  }, []);
+
+  // Synchronously scroll to bottom before first paint to eliminate any flash/blink of older messages
+  useLayoutEffect(() => {
+    const el = stream.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+      nearBottom.current = true;
+      setIsScrolledUp(false);
+      setIsStreamReady(true);
+    }
+    const raf = requestAnimationFrame(() => {
+      if (stream.current && nearBottom.current) {
+        stream.current.scrollTop = stream.current.scrollHeight;
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // If a chat image finishes loading, keep view anchored to bottom only if user hasn't scrolled up
+  const handleChatImageLoad = () => {
     if (nearBottom.current && stream.current) {
       stream.current.scrollTop = stream.current.scrollHeight;
-    } else if (latest) {
+    }
+  };
+
+  useEffect(() => {
+    if (latest === lastMessage.current) return;
+    const isFirstRun = lastMessage.current === undefined;
+    lastMessage.current = latest;
+
+    if (nearBottom.current && stream.current) {
+      stream.current.scrollTop = stream.current.scrollHeight;
+    } else if (latest && !isFirstRun) {
       setUnread(true);
       setUnreadCount((c) => c + 1);
     }
@@ -451,7 +485,7 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
           />
 
           <div
-            className="conversation-stream"
+            className={`conversation-stream ${isStreamReady ? 'opacity-100' : 'opacity-0'} transition-opacity duration-75`}
             ref={stream}
             onScroll={() => {
               const el = stream.current;
@@ -565,7 +599,7 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                                         src={message.file_url}
                                         alt={message.file_name || 'Attached image'}
                                         className="max-h-60 w-auto max-w-full object-contain rounded-xl group-hover/img:scale-[1.02] transition-transform duration-200"
-                                        loading="lazy"
+                                        onLoad={handleChatImageLoad}
                                       />
                                     </a>
                                   </div>
@@ -725,7 +759,7 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                                         return (
                                           <div className="my-1 ml-4 overflow-hidden rounded-md border border-emerald-500/25 max-w-[200px]">
                                             <a href={sub.file_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                                              <img src={sub.file_url} alt={sub.file_name || 'Attached image'} className="max-h-36 w-auto rounded-md object-contain" loading="lazy" />
+                                              <img src={sub.file_url} alt={sub.file_name || 'Attached image'} className="max-h-36 w-auto rounded-md object-contain" onLoad={handleChatImageLoad} />
                                             </a>
                                           </div>
                                         );
@@ -1095,15 +1129,19 @@ export default function ChatRoom({ room, initialMessages, rooms, emergencyLockdo
                   · Press Enter to send
                 </span>
               ) : (
-                <span className="text-cyan-400/90 flex items-center gap-1.5">
-                  <span className="px-1.5 py-0.2 rounded bg-cyan-950 border border-cyan-600/50 text-[9px] text-cyan-300 inline-flex items-center gap-1 font-mono">
-                    <Ghost size={10} />
-                    <span>GHOST</span>
-                  </span>
-                  <span>Ephemeral Ghost Session · Chat history will not remain</span>
+                <span className="text-cyan-400/70 flex items-center gap-1.5">
+                  <span>· Press Enter to send</span>
                 </span>
               )}
-              <span>{form.data.message.length}/{live.policy.message_max_length}</span>
+              <div className="flex items-center gap-2">
+                {!auth.user && (
+                  <span className="px-1.5 py-0.2 rounded bg-cyan-950 border border-cyan-600/50 text-[9px] text-cyan-300 inline-flex items-center gap-1 font-mono">
+                    <Ghost size={9.5} />
+                    <span>Ghost Mode</span>
+                  </span>
+                )}
+                <span>{form.data.message.length}/{live.policy.message_max_length}</span>
+              </div>
             </div>
           </div>
         </section>
