@@ -45,10 +45,11 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   const nearBottom = useRef(true);
   const lastMessage = useRef<string | undefined>(undefined);
   const [unread, setUnread] = useState(false);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const live = useLiveChat(room.slug, initialMessages, site, site.chat_enabled && (!emergencyLockdown || auth.user?.role === 'SUPER_ADMIN') && (!!auth.user || site.guest_chat_enabled));
   const { messages, connected } = live;
   const [searchTerm, setSearchTerm] = useState('');
-  const [autoScroll, setAutoScroll] = useState(true);
 
   // Track which message has its sub-chat open
   const [activeSubChatId, setActiveSubChatId] = useState<string | null>(null);
@@ -262,23 +263,35 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
   useEffect(() => {
     if (latest === lastMessage.current) return;
     lastMessage.current = latest;
-    if (autoScroll && nearBottom.current && stream.current) {
+    if (nearBottom.current && stream.current) {
       stream.current.scrollTop = stream.current.scrollHeight;
     } else if (latest) {
-      queueMicrotask(() => setUnread(true));
+      setUnread(true);
+      setUnreadCount((c) => c + 1);
     }
-  }, [latest, autoScroll]);
+  }, [latest]);
 
-  const jump = () => {
-    if (stream.current) stream.current.scrollTop = stream.current.scrollHeight;
+  const scrollToBottom = (smooth = true) => {
+    if (stream.current) {
+      if (smooth) {
+        stream.current.scrollTo({ top: stream.current.scrollHeight, behavior: 'smooth' });
+      } else {
+        stream.current.scrollTop = stream.current.scrollHeight;
+      }
+    }
     nearBottom.current = true;
+    setIsScrolledUp(false);
     setUnread(false);
+    setUnreadCount(0);
   };
 
   const send = async (event: FormEvent) => {
     event.preventDefault();
     if ((!form.data.message.trim() && !attachedFile) || !live.policy.can_send || live.sending) return;
     nearBottom.current = true;
+    setIsScrolledUp(false);
+    setUnread(false);
+    setUnreadCount(0);
 
     let payload: object | FormData;
     if (attachedFile) {
@@ -336,12 +349,8 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
         <section className="conversation-panel" aria-label="Public Chatbox">
           <ChatFlowerOverlay ref={flowerRef} />
           <ChatTools
-            roomName="Chatbox"
-            roomSymbol={<MessageCircle size={16} className="text-cyan-400" />}
             search={searchTerm}
             onSearch={setSearchTerm}
-            autoScroll={autoScroll}
-            onAutoScroll={setAutoScroll}
             onRefresh={() => void live.refresh()}
             connected={connected}
             onToggleNotifications={live.setNotifications}
@@ -373,8 +382,14 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             onScroll={() => {
               const el = stream.current;
               if (el) {
-                nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 90;
-                if (nearBottom.current) setUnread(false);
+                const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                const isNear = distanceToBottom < 75;
+                nearBottom.current = isNear;
+                setIsScrolledUp(!isNear);
+                if (isNear) {
+                  setUnread(false);
+                  setUnreadCount(0);
+                }
               }
             }}
             role="log"
@@ -459,15 +474,15 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                           {/* Perched Garden Butterfly sitting on the message */}
                           {(message.butterfly_count ?? 0) > 0 && (
                             <span
-                              className="perched-butterfly absolute -top-2.5 -right-2 px-1.5 py-0.5 rounded-full bg-emerald-950/95 border border-emerald-400/50 text-[10px] font-mono text-emerald-200 shadow-[0_0_12px_rgba(52,211,153,0.5)] flex items-center gap-1 z-10"
+                              className={`perched-butterfly absolute -bottom-2.5 ${own ? 'left-1' : 'right-1'} px-1.5 py-0.2 rounded-full bg-emerald-950/95 border border-emerald-400/50 text-[9px] font-mono text-emerald-200 shadow-[0_0_8px_rgba(52,211,153,0.35)] flex items-center gap-0.5 z-10 cursor-pointer`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 void handleButterflyReact(message, e.currentTarget);
                               }}
-                              title="A garden butterfly is resting here! Double-tap message to magic another"
+                              title="Butterfly reaction · Double-tap to react"
                             >
-                              <span className="text-xs">🦋</span>
-                              <span>{message.butterfly_count}</span>
+                              <span className="text-[11px]">🦋</span>
+                              <span className="text-[9px] font-bold">{message.butterfly_count}</span>
                             </span>
                           )}
 
@@ -546,16 +561,15 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                         <button
                           type="button"
                           onClick={() => setActiveSubChatId(isSubChatOpen ? null : message.public_id)}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md transition text-[11px] font-mono flex-shrink-0 ${
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition text-[9.5px] font-mono flex-shrink-0 cursor-pointer ${
                             isSubChatOpen
                               ? 'bg-cyan-950 border border-cyan-500/50 text-cyan-300'
-                              : 'bg-slate-900/60 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200'
+                              : 'bg-slate-900/50 hover:bg-slate-800 border border-slate-800/80 text-slate-400 hover:text-slate-200'
                           }`}
                           title="Reply in Sub-chat"
                         >
-                          <MessageSquare size={11} className={subCount > 0 ? 'text-cyan-400' : ''} />
+                          <MessageSquare size={9.5} className={subCount > 0 ? 'text-cyan-400' : ''} />
                           <span>{subCount > 0 ? `Reply (${subCount})` : 'Reply'}</span>
-                          <CornerDownRight size={10} className="text-slate-500" />
                         </button>
 
                         {/* Admin Delete Button */}
@@ -725,9 +739,23 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
             })}
           </div>
 
-          {unread && (
-            <button className="new-messages font-mono text-xs" onClick={jump}>
-              New messages <ChevronDown size={14} />
+          {/* Floating Down Arrow button to get back to newest messages when scrolled up */}
+          {isScrolledUp && (
+            <button
+              type="button"
+              onClick={() => scrollToBottom(true)}
+              aria-label="Back to newest messages"
+              className="scroll-to-bottom-btn absolute bottom-16 right-4 z-30 flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-slate-900/95 border border-cyan-500/60 text-cyan-300 shadow-[0_4px_20px_rgba(0,0,0,0.7)] backdrop-blur-md hover:bg-cyan-950 hover:text-white transition-all transform hover:scale-105 active:scale-95 cursor-pointer select-none"
+              title="Jump to newest message"
+            >
+              <ChevronDown size={14} className="animate-bounce" />
+              {unreadCount > 0 ? (
+                <span className="text-[10px] font-mono font-bold bg-cyan-500 text-slate-950 px-1.5 py-0.2 rounded-full leading-tight">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono font-medium">Newest</span>
+              )}
             </button>
           )}
 

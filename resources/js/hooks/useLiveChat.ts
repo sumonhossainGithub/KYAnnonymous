@@ -35,9 +35,25 @@ export function useLiveChat(slug: string, initialMessages: ChatMessageItem[], si
   const snapshot = state.slug === slug ? state.snapshot : { messages: initialMessages, policy: initialPolicy, typing: [], polls: [], butterfly_events: [] };
 
   const accept = useCallback((value: Snapshot) => {
-    if (currentSlug.current !== slug) return;
-    setState(previous => previous.slug === slug && JSON.stringify(previous.snapshot) === JSON.stringify(value) ? previous : { slug, snapshot: value });
-    setConnected(true);
+    setState(previous => {
+      if (previous.slug !== slug) return { slug, snapshot: value };
+      const prev = previous.snapshot;
+      if (
+        prev.messages.length === value.messages.length &&
+        prev.messages[prev.messages.length - 1]?.public_id === value.messages[value.messages.length - 1]?.public_id &&
+        prev.messages[prev.messages.length - 1]?.butterfly_count === value.messages[value.messages.length - 1]?.butterfly_count &&
+        (prev.polls?.length ?? 0) === (value.polls?.length ?? 0) &&
+        (prev.typing?.length ?? 0) === (value.typing?.length ?? 0) &&
+        prev.policy.can_send === value.policy.can_send
+      ) {
+        const prevVotes = prev.polls?.reduce((acc, p) => acc + p.total_votes, 0) ?? 0;
+        const newVotes = value.polls?.reduce((acc, p) => acc + p.total_votes, 0) ?? 0;
+        if (prevVotes === newVotes) {
+          return previous;
+        }
+      }
+      return { slug, snapshot: value };
+    });
 
     // Browser notification for new messages when tab is hidden
     if (document.hidden && notificationsEnabled.current && value.messages.length > prevMessageCount.current) {

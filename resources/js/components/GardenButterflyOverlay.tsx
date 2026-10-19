@@ -115,17 +115,18 @@ export const GardenButterflyOverlay = forwardRef<GardenButterflyRef>((_, ref) =>
         break;
     }
 
-    const targetX = targetRect.left + (targetRect.width > 60 ? targetRect.width - 24 : targetRect.width / 2);
-    const targetY = targetRect.top - 8;
+    // Fly to above the message corner, never blocking the text
+    const targetX = targetRect.right - 8;
+    const targetY = Math.max(10, targetRect.top - 28);
 
     // Organic curving bezier flight path across the sky with natural swoops
-    const midX = (startX + targetX) / 2 + (Math.random() - 0.5) * 260;
-    const midY = (startY + targetY) / 2 + (Math.random() - 0.5) * 180;
+    const midX = (startX + targetX) / 2 + (Math.random() - 0.5) * 200;
+    const midY = (startY + targetY) / 2 + (Math.random() - 0.5) * 140;
 
-    const controlX1 = startX + (midX - startX) * 0.55 + (Math.random() - 0.5) * 140;
-    const controlY1 = startY + (midY - startY) * 0.25 - (Math.random() * 120 + 50);
-    const controlX2 = midX + (targetX - midX) * 0.65 + (Math.random() - 0.5) * 120;
-    const controlY2 = targetY + (Math.random() * 90 + 35);
+    const controlX1 = startX + (midX - startX) * 0.55 + (Math.random() - 0.5) * 100;
+    const controlY1 = startY + (midY - startY) * 0.25 - (Math.random() * 80 + 30);
+    const controlX2 = midX + (targetX - midX) * 0.65 + (Math.random() - 0.5) * 100;
+    const controlY2 = targetY + (Math.random() * 60 + 20);
 
     const flightId = 'bf_' + Math.random().toString(36).substring(2, 9);
     const palette = BUTTERFLY_PALETTES[Math.floor(Math.random() * BUTTERFLY_PALETTES.length)];
@@ -146,11 +147,11 @@ export const GardenButterflyOverlay = forwardRef<GardenButterflyRef>((_, ref) =>
 
     setFlights((prev) => [...prev, instance]);
 
-    // Slower, graceful flight duration (~2700ms flight + gentle settlement)
+    // Quick, smooth flight (~1600ms) that doesn't linger over the text
     setTimeout(() => {
       onLanded?.();
       setFlights((prev) => prev.filter((f) => f.id !== flightId));
-    }, 2850);
+    }, 1650);
   }, []);
 
   useImperativeHandle(ref, () => ({
@@ -186,7 +187,7 @@ function AnimatedRealisticButterfly({ flight }: { flight: ButterflyFlightInstanc
 
   useEffect(() => {
     const startTime = performance.now();
-    const duration = 2700; // Slower, poetic flight (2.7 seconds)
+    const duration = 1600;
 
     let frameId: number;
 
@@ -206,7 +207,7 @@ function AnimatedRealisticButterfly({ flight }: { flight: ButterflyFlightInstanc
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / duration);
 
-      // Natural ease: smooth take-off, graceful mid-flight, gentle deceleration landing
+      // Natural ease: smooth take-off, graceful mid-flight, gentle landing
       const eased = progress < 0.5
         ? 2 * progress * progress
         : 1 - Math.pow(-2 * progress + 2, 2.2) / 2;
@@ -214,30 +215,32 @@ function AnimatedRealisticButterfly({ flight }: { flight: ButterflyFlightInstanc
       const p0 = getBezierPoint(Math.max(0, eased - 0.015));
       const p1 = getBezierPoint(eased);
 
-      // Natural wing-beat flutter bobbing (real butterflies bob vertically as wings beat)
+      // Wing flutter bobbing
       const flutterFreq = 16;
       const flapWave = Math.sin(progress * Math.PI * flutterFreq);
-      const flutterAmp = (1 - progress * 0.75) * 11;
+      const flutterAmp = (1 - progress * 0.75) * 8;
       const bobY = flapWave * flutterAmp;
 
-      // Calculate tangent flight heading
+      // Heading angle
       const dx = p1.x - p0.x;
       const dy = p1.y - p0.y;
       const rawAngle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-
-      // Add gentle body bank into turns
       const bankAngle = flapWave * 4;
       const angle = rawAngle + bankAngle;
 
-      // Emerge from deep background: start scale 0.22 and fade in,
-      // expand into a majestic butterfly (~1.28 scale), then gently settle on the message (~1.02)
-      const scale = progress < 0.22
-        ? 0.22 + (progress / 0.22) * 1.06
-        : progress > 0.82
-          ? 1.28 - ((progress - 0.82) / 0.18) * 0.26
-          : 1.28;
+      // Scale: start small, flutter around 0.9, then gracefully shrink and fade so message is never hidden
+      const scale = progress < 0.2
+        ? 0.22 + (progress / 0.2) * 0.68
+        : progress > 0.75
+          ? 0.9 - ((progress - 0.75) / 0.25) * 0.45
+          : 0.9;
 
-      const opacity = progress < 0.12 ? progress / 0.12 : 1;
+      // Fade in smoothly at start, fade out gracefully at landing so text remains 100% visible
+      const opacity = progress < 0.12
+        ? progress / 0.12
+        : progress > 0.75
+          ? Math.max(0, 1 - (progress - 0.75) / 0.25)
+          : 1;
 
       setCoords({
         x: p1.x,

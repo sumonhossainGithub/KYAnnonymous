@@ -278,8 +278,10 @@ class CommunityController extends Controller
 
     protected function loadMessagesForRoom(int $roomId, bool $adminStealth, ?int $userId = null)
     {
-        // Public chat retention: all messages (logged in or guest) remain available for 30 days
-        ChatMessage::where('created_at', '<', now()->subDays(30))->delete();
+        // Public chat retention: all messages (logged in or guest) remain available for 30 days (throttled to once per hour)
+        if (\Illuminate\Support\Facades\Cache::add('chat_cleanup_30d', true, 3600)) {
+            ChatMessage::where('created_at', '<', now()->subDays(30))->delete();
+        }
 
         $mySent = (array) session('my_message_ids', []);
         $userReactKey = $userId ? "u_{$userId}" : 'g_' . substr((string) session()->getId(), 0, 8);
@@ -695,8 +697,14 @@ class CommunityController extends Controller
         return back()->with('success', 'Report received. Our moderation team will inspect this content.');
     }
 
+    protected static bool $pollTablesChecked = false;
+
     protected function ensurePollTablesExist(): void
     {
+        if (static::$pollTablesChecked) {
+            return;
+        }
+
         if (!\Illuminate\Support\Facades\Schema::hasTable('polls')) {
             \Illuminate\Support\Facades\Schema::create('polls', function (\Illuminate\Database\Schema\Blueprint $table) {
                 $table->id();
@@ -754,6 +762,8 @@ class CommunityController extends Controller
                 }
             });
         }
+
+        static::$pollTablesChecked = true;
     }
 
     public function createPoll(Request $request, string $slug)
