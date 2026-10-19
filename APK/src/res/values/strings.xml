@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KYAnonymous</string>
+    <string name="error_title">Connection Lost</string>
+    <string name="error_message">Unable to connect to KYAnonymous servers. Please check your internet connection.</string>
+    <string name="btn_retry">Retry Connection</string>
+    <string name="press_again_to_exit">Press back again to exit</string>
+    <string name="downloading">Downloading file…</string>
+    <string name="file_chooser_title">Select file or image to upload</string>
+</resources>

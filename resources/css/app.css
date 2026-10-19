@@ -3027,11 +3027,12 @@ textarea {
 .site-home-intro { margin-bottom: 24px; }
 .site-home-intro h1 { font-size: clamp(24px, 4vw, 38px); line-height: 1.2; margin-bottom: 10px; }
 .site-home-intro p { color: #94a3b8; line-height: 1.7; }
-.chat-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 14px; border-bottom: 1px solid var(--line); flex-shrink: 0; background: rgba(3, 7, 18, 0.4); }
+.chat-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); flex-shrink: 0; background: rgba(3, 7, 18, 0.4); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.chat-tools::-webkit-scrollbar { display: none; }
 .chat-search { display: flex; align-items: center; gap: 8px; max-width: 220px; flex: 1 1 auto; min-width: 0; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 4px 8px; }
 .chat-search svg { flex-shrink: 0; color: #64748b; }
 .chat-search input { width: 100%; min-width: 0; background: transparent; border: none !important; padding: 0 4px !important; font-size: 12px; color: #f1f5f9; outline: none; }
-.chat-follow { display: flex; align-items: center; gap: 6px; font-size: 11px; font-family: monospace; color: #94a3b8; cursor: pointer; white-space: nowrap; }
+.chat-follow { display: flex; align-items: center; gap: 6px; font-size: 11px; font-family: monospace; color: #94a3b8; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .conversation-panel:has(.chat-tools) { min-height: 560px; }
 .settings-page { max-width: 1280px; margin: auto; }
 .settings-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; margin-bottom: 24px; }
@@ -3087,9 +3088,9 @@ textarea {
   .settings-tabs button { padding-inline: 12px; }
   .settings-save > div { width: 100%; }
   .settings-save .button { flex: 1; }
-  .chat-tools { gap: 4px 8px; padding: 8px 12px; }
-  .chat-search { flex-basis: 100%; }
-  .chat-follow { flex: 1; }
+  .chat-tools { flex-wrap: nowrap; gap: 6px; padding: 6px 8px; }
+  .chat-search { flex-basis: auto; flex: 1 1 0%; min-width: 0; max-width: none; }
+  .chat-follow { flex: 0 0 auto; }
   .topbar-left > a > div { max-width: 110px; }
 }
 

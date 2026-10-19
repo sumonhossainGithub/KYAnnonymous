@@ -68,7 +68,7 @@ export default function NotificationToggle({ onToggle }: NotificationToggleProps
     <button
       type="button"
       onClick={handleToggle}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-mono transition border ${
+      className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] font-mono transition border flex-shrink-0 whitespace-nowrap cursor-pointer ${
         enabled
           ? 'bg-emerald-950 border-emerald-500/50 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.2)]'
           : permission === 'denied'
@@ -83,8 +83,9 @@ export default function NotificationToggle({ onToggle }: NotificationToggleProps
           : 'Turn on notifications to receive alerts even when minimized'
       }
     >
-      <Icon size={13} />
-      <span>{enabled ? 'Notifications ON' : 'Notify Me'}</span>
+      <Icon size={12} className="flex-shrink-0" />
+      <span className="hidden sm:inline">{enabled ? 'Notifications ON' : 'Notify Me'}</span>
+      <span className="sm:hidden">{enabled ? 'ON' : 'Notify'}</span>
     </button>
   );
 }
