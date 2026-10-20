@@ -539,19 +539,14 @@ class GhostAITest extends TestCase
         // 2. Fetching chat messages works
         $this->actingAs($this->user)->getJson("/chat/{$this->room->slug}/messages")->assertOk();
 
-        // 3. Guest chat continues operating
-        auth()->logout();
-        $this->flushSession();
-
-        $guestResponse = $this->postJson("/chat/{$this->room->slug}/message", [
-            'message' => 'Anonymous guest message',
-            'guest_name' => 'Wanderer',
+        // 3. Regular chat posting continues operating
+        $postResponse = $this->actingAs($this->user)->postJson("/chat/{$this->room->slug}/message", [
+            'message' => 'Regular user message',
         ]);
-        $guestResponse->assertStatus(201);
+        $postResponse->assertStatus(201);
         $this->assertDatabaseHas('chat_messages', [
-            'message' => 'Anonymous guest message',
-            'is_guest' => true,
-            'alias_name' => 'Wanderer',
+            'message' => 'Regular user message',
+            'user_id' => $this->user->id,
         ]);
     }
 

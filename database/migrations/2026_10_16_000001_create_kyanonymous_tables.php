@@ -153,7 +153,7 @@ return new class extends Migration
             $table->id();
             $table->string('public_id', 26)->unique();
             $table->foreignId('chat_room_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->text('message');
             $table->timestamps();
 
