@@ -562,7 +562,7 @@ class AdminController extends Controller
                 'pending_auto' => $pendingAuto,
                 'total_pending' => $pendingCommands + $pendingAuto,
                 'failed_count' => $failedGhostJobs,
-                'is_locked' => \Illuminate\Support\Facades\Cache::has('ghost_ai_inference_lock'),
+                'is_locked' => \App\Services\Ghost\GhostAIService::isInferenceLocked(),
             ],
             'last_success' => \Illuminate\Support\Facades\Cache::get('ghost_ai:last_success'),
             'last_error' => \Illuminate\Support\Facades\Cache::get('ghost_ai:last_error'),
@@ -577,15 +577,44 @@ class AdminController extends Controller
 
     public function updateGhostSettings(Request $request)
     {
+        $jobTimeout = (int) config('ghost.job_timeout', 400);
+        $maxAllowedTimeout = max(30, $jobTimeout - 10); // Keep HTTP timeout strictly below job timeout (<= 390s)
+
         $data = $request->validate([
             'ghost_ai_enabled' => ['required', 'boolean'],
-            'ghost_ai_endpoint' => ['required', 'string', 'url'],
+            'ghost_ai_endpoint' => [
+                'required',
+                'string',
+                'url',
+                function ($attribute, $value, $fail) {
+                    $parsed = parse_url($value);
+                    $scheme = strtolower($parsed['scheme'] ?? '');
+                    $host = strtolower($parsed['host'] ?? '');
+
+                    if (!in_array($scheme, ['http', 'https'], true)) {
+                        $fail('The Ghost AI endpoint scheme must be http or https.');
+                        return;
+                    }
+
+                    if (!in_array($host, ['127.0.0.1', 'localhost'], true)) {
+                        $fail('The Ghost AI endpoint is strictly restricted to local host (127.0.0.1 or localhost). External services or arbitrary URLs are prohibited.');
+                    }
+                },
+            ],
             'ghost_auto_reply_enabled' => ['required', 'boolean'],
             'ghost_command_reply_enabled' => ['required', 'boolean'],
             'ghost_auto_reply_max_active_users' => ['required', 'integer', 'min:0', 'max:50'],
             'ghost_auto_reply_cooldown_seconds' => ['required', 'integer', 'min:10', 'max:3600'],
-            'ghost_max_output_tokens' => ['required', 'integer', 'min:8', 'max:256'],
-            'ghost_request_timeout' => ['required', 'integer', 'min:10', 'max:600'],
+            'ghost_max_output_tokens' => ['required', 'integer', 'min:8', 'max:64'],
+            'ghost_request_timeout' => [
+                'required',
+                'integer',
+                'min:10',
+                "max:{$maxAllowedTimeout}",
+            ],
+        ], [
+            'ghost_request_timeout.max' => "The HTTP request timeout must not exceed {$maxAllowedTimeout} seconds (must remain below the job timeout of {$jobTimeout}s).",
+            'ghost_max_output_tokens.max' => 'The max output tokens must not exceed 64 tokens to protect the phone from inference timeouts at ~0.1 tokens/sec.',
         ]);
 
         foreach ($data as $key => $value) {
@@ -609,7 +638,7 @@ class AdminController extends Controller
             $deleted = DB::table('jobs')->whereIn('queue', ['ghost-commands', 'ghost-auto'])->delete();
         } catch (\Throwable) {}
 
-        \Illuminate\Support\Facades\Cache::forget('ghost_ai_inference_lock');
+        \App\Services\Ghost\GhostAIService::releaseInferenceLock();
 
         AdminAuditLog::create([
             'admin_id' => $request->user()->id,

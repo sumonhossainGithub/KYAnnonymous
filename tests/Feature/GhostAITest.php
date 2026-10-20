@@ -820,4 +820,152 @@ class GhostAITest extends TestCase
         $occurrences = array_count_values($contents)['explain quicksort vs mergesort'] ?? 0;
         $this->assertSame(1, $occurrences);
     }
+
+    /**
+     * 29. AI timeout resolves to 360s and handles stale 120s seeds safely.
+     */
+    public function test_29_ai_timeout_resolves_to_360_and_upgrades_legacy_120_default(): void
+    {
+        $aiService = app(GhostAIService::class);
+
+        // 1. By default, timeout must be 360 seconds (matching config/ghost.php)
+        $this->assertSame(360, $aiService->getRequestTimeout());
+
+        // 2. If legacy draft setting of 120 is present, getRequestTimeout upgrades to 360
+        AppSetting::set('ghost_request_timeout', '120');
+        $this->assertSame(360, $aiService->getRequestTimeout());
+
+        // 3. Admin-configured valid timeout within bounds is respected
+        AppSetting::set('ghost_request_timeout', '300');
+        $this->assertSame(300, $aiService->getRequestTimeout());
+
+        // Reset to 360
+        AppSetting::set('ghost_request_timeout', '360');
+    }
+
+    /**
+     * 30. Queue tables migration rollback is non-destructive.
+     */
+    public function test_30_queue_tables_migration_rollback_is_nondestructive(): void
+    {
+        $migration = require database_path('migrations/2026_10_20_000001_create_queue_tables.php');
+
+        // Rollback down() must NOT drop existing queue tables
+        $migration->down();
+
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasTable('jobs'));
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasTable('job_batches'));
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasTable('failed_jobs'));
+    }
+
+    /**
+     * 31. Admin settings validation blocks unsafe timeouts, tokens, and external endpoints.
+     */
+    public function test_31_admin_settings_validation_blocks_unsafe_timeouts_tokens_and_external_endpoints(): void
+    {
+        $this->actingAs($this->superAdmin);
+
+        // 1. Reject external endpoint (SSRF prevention)
+        $respExternal = $this->post('/admin/ghost/settings', [
+            'ghost_ai_enabled' => true,
+            'ghost_ai_endpoint' => 'http://external-ai.com/v1/chat/completions',
+            'ghost_auto_reply_enabled' => true,
+            'ghost_command_reply_enabled' => true,
+            'ghost_auto_reply_max_active_users' => 3,
+            'ghost_auto_reply_cooldown_seconds' => 300,
+            'ghost_max_output_tokens' => 32,
+            'ghost_request_timeout' => 360,
+        ]);
+        $respExternal->assertSessionHasErrors('ghost_ai_endpoint');
+
+        // 2. Reject intranet / non-localhost IP
+        $respLan = $this->post('/admin/ghost/settings', [
+            'ghost_ai_enabled' => true,
+            'ghost_ai_endpoint' => 'http://192.168.1.100:8081/v1/chat/completions',
+            'ghost_auto_reply_enabled' => true,
+            'ghost_command_reply_enabled' => true,
+            'ghost_auto_reply_max_active_users' => 3,
+            'ghost_auto_reply_cooldown_seconds' => 300,
+            'ghost_max_output_tokens' => 32,
+            'ghost_request_timeout' => 360,
+        ]);
+        $respLan->assertSessionHasErrors('ghost_ai_endpoint');
+
+        // 3. Reject excessive output tokens for ~0.1 tok/sec generation (e.g. 128)
+        $respTokens = $this->post('/admin/ghost/settings', [
+            'ghost_ai_enabled' => true,
+            'ghost_ai_endpoint' => 'http://127.0.0.1:8081/v1/chat/completions',
+            'ghost_auto_reply_enabled' => true,
+            'ghost_command_reply_enabled' => true,
+            'ghost_auto_reply_max_active_users' => 3,
+            'ghost_auto_reply_cooldown_seconds' => 300,
+            'ghost_max_output_tokens' => 128,
+            'ghost_request_timeout' => 360,
+        ]);
+        $respTokens->assertSessionHasErrors('ghost_max_output_tokens');
+
+        // 4. Reject HTTP timeout exceeding or equal to job timeout (e.g. 450s > 400s)
+        $respTimeout = $this->post('/admin/ghost/settings', [
+            'ghost_ai_enabled' => true,
+            'ghost_ai_endpoint' => 'http://127.0.0.1:8081/v1/chat/completions',
+            'ghost_auto_reply_enabled' => true,
+            'ghost_command_reply_enabled' => true,
+            'ghost_auto_reply_max_active_users' => 3,
+            'ghost_auto_reply_cooldown_seconds' => 300,
+            'ghost_max_output_tokens' => 32,
+            'ghost_request_timeout' => 450,
+        ]);
+        $respTimeout->assertSessionHasErrors('ghost_request_timeout');
+
+        // 5. Valid safe configuration is accepted
+        $respValid = $this->post('/admin/ghost/settings', [
+            'ghost_ai_enabled' => true,
+            'ghost_ai_endpoint' => 'http://127.0.0.1:8081/v1/chat/completions',
+            'ghost_auto_reply_enabled' => true,
+            'ghost_command_reply_enabled' => true,
+            'ghost_auto_reply_max_active_users' => 3,
+            'ghost_auto_reply_cooldown_seconds' => 300,
+            'ghost_max_output_tokens' => 32,
+            'ghost_request_timeout' => 360,
+        ]);
+        $respValid->assertSessionHasNoErrors();
+        $this->assertSame('360', AppSetting::get('ghost_request_timeout'));
+        $this->assertSame('32', AppSetting::get('ghost_max_output_tokens'));
+    }
+
+    /**
+     * 32. Atomic inference lock status reporting and release.
+     */
+    public function test_32_atomic_inference_lock_status_reporting_and_release(): void
+    {
+        $this->actingAs($this->superAdmin);
+
+        // Ensure lock is clear initially
+        GhostAIService::releaseInferenceLock();
+        $this->assertFalse(GhostAIService::isInferenceLocked());
+
+        // Admin dashboard observes idle
+        $response = $this->get('/admin/ghost');
+        $response->assertOk();
+        $this->assertFalse($response->viewData('page')['props']['queue']['is_locked']);
+
+        // Acquire real atomic lock
+        $lock = Cache::lock('ghost_ai_inference_lock', 60);
+        $this->assertTrue($lock->get());
+
+        // Status must immediately reflect active inference lock
+        $this->assertTrue(GhostAIService::isInferenceLocked());
+
+        $responseLocked = $this->get('/admin/ghost');
+        $responseLocked->assertOk();
+        $this->assertTrue($responseLocked->viewData('page')['props']['queue']['is_locked']);
+
+        // Releasing lock via emergency release
+        GhostAIService::releaseInferenceLock();
+        $this->assertFalse(GhostAIService::isInferenceLocked());
+
+        $responseUnlocked = $this->get('/admin/ghost');
+        $responseUnlocked->assertOk();
+        $this->assertFalse($responseUnlocked->viewData('page')['props']['queue']['is_locked']);
+    }
 }

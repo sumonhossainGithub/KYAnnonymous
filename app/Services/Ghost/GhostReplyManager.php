@@ -128,7 +128,7 @@ class GhostReplyManager
         }
 
         // Concurrency protection: if inference lock is currently held, skip auto-replies
-        if (Cache::has('ghost_ai_inference_lock')) {
+        if (GhostAIService::isInferenceLocked()) {
             Log::debug('Ghost AI auto-reply skipped: inference engine currently busy.');
             return false;
         }

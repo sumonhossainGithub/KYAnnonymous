@@ -53,11 +53,13 @@ return new class extends Migration
 
     /**
      * Reverse the migrations.
+     *
+     * Non-destructive rollback: Queue tables (jobs, job_batches, failed_jobs) may contain
+     * pre-existing application jobs or historical queue data that this migration did not create.
+     * To prevent catastrophic data loss during rollback, tables are intentionally preserved.
      */
     public function down(): void
     {
-        Schema::dropIfExists('failed_jobs');
-        Schema::dropIfExists('job_batches');
-        Schema::dropIfExists('jobs');
+        // Non-destructive: preserve queue tables and historical jobs
     }
 };

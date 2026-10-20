@@ -414,35 +414,35 @@ export default function GhostAI({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-mono text-slate-300 mb-1">
-                    Max Tokens (default: 32)
+                    Max Tokens (safe: 8–64, default: 32)
                   </label>
                   <input
                     type="number"
                     min="8"
-                    max="128"
+                    max="64"
                     value={form.data.ghost_max_output_tokens}
                     onChange={(e) => form.setData('ghost_max_output_tokens', parseInt(e.target.value) || 32)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono focus:border-cyan-500"
                   />
                   <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                    ~0.1 tok/s speed requires tight output bounds.
+                    ~0.1 tok/s requires ≤ 64 tokens to finish within timeouts.
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-mono text-slate-300 mb-1">
-                    Timeout (seconds: 120)
+                    HTTP Timeout (seconds: default 360)
                   </label>
                   <input
                     type="number"
                     min="10"
-                    max="600"
+                    max="390"
                     value={form.data.ghost_request_timeout}
-                    onChange={(e) => form.setData('ghost_request_timeout', parseInt(e.target.value) || 120)}
+                    onChange={(e) => form.setData('ghost_request_timeout', parseInt(e.target.value) || 360)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono focus:border-cyan-500"
                   />
                   <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                    HTTP client socket timeout.
+                    Must remain below worker job timeout (400s).
                   </p>
                 </div>
               </div>
@@ -450,14 +450,18 @@ export default function GhostAI({
               {/* Endpoint */}
               <div>
                 <label className="block text-xs font-mono text-slate-300 mb-1">
-                  AI Endpoint URL
+                  AI Endpoint URL (Strictly localhost: 127.0.0.1 or localhost)
                 </label>
                 <input
                   type="text"
                   value={form.data.ghost_ai_endpoint}
                   onChange={(e) => form.setData('ghost_ai_endpoint', e.target.value)}
+                  placeholder="http://127.0.0.1:8081/v1/chat/completions"
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono focus:border-cyan-500"
                 />
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  Local llama-server only. Arbitrary external hosts are strictly blocked.
+                </p>
               </div>
             </div>
           </div>

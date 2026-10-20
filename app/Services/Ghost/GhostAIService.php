@@ -42,10 +42,48 @@ EOT;
 
     /**
      * Get the configured API endpoint.
+     * Strictly restricted to localhost (127.0.0.1 or localhost) to prevent external SSRF.
      */
     public function getEndpoint(): string
     {
-        return AppSetting::get('ghost_ai_endpoint', config('ghost.endpoint', 'http://127.0.0.1:8081/v1/chat/completions'));
+        $raw = AppSetting::get('ghost_ai_endpoint', config('ghost.endpoint', 'http://127.0.0.1:8081/v1/chat/completions'));
+        $parsed = parse_url($raw);
+        $host = strtolower($parsed['host'] ?? '');
+        if (!in_array($host, ['127.0.0.1', 'localhost'], true)) {
+            return (string) config('ghost.endpoint', 'http://127.0.0.1:8081/v1/chat/completions');
+        }
+        return $raw;
+    }
+
+    /**
+     * Get the configured HTTP request timeout in seconds.
+     * Enforces the verified 360-second default and protects against stale 120s drafts.
+     */
+    public function getRequestTimeout(): int
+    {
+        $val = (int) AppSetting::get('ghost_request_timeout', config('ghost.request_timeout', 360));
+        if ($val <= 0 || $val === 120) {
+            return (int) config('ghost.request_timeout', 360);
+        }
+        return $val;
+    }
+
+    /**
+     * Check if the atomic inference lock is currently held by any process.
+     * Strictly queries the underlying atomic lock rather than a standard cache key.
+     */
+    public static function isInferenceLocked(): bool
+    {
+        return Cache::lock('ghost_ai_inference_lock')->isLocked();
+    }
+
+    /**
+     * Force release the atomic inference lock (e.g. administrator queue cancellation).
+     */
+    public static function releaseInferenceLock(): void
+    {
+        Cache::lock('ghost_ai_inference_lock')->forceRelease();
+        Cache::forget('ghost_ai_inference_lock');
     }
 
     /**
@@ -106,7 +144,7 @@ EOT;
         $endpoint = $this->getEndpoint();
         $apiKey = config('ghost.api_key', null);
         $tokens = $maxTokens ?? (int) AppSetting::get('ghost_max_output_tokens', config('ghost.max_output_tokens', 32));
-        $timeoutSeconds = $timeout ?? (int) AppSetting::get('ghost_request_timeout', config('ghost.request_timeout', 360));
+        $timeoutSeconds = $timeout ?? $this->getRequestTimeout();
 
         // Build messages payload with strict system prompt
         $messages = [

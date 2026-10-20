@@ -56,11 +56,15 @@ return new class extends Migration
         ];
 
         foreach ($defaultSettings as $key => $value) {
-            if (!AppSetting::where('key', $key)->exists()) {
+            $existing = AppSetting::where('key', $key)->first();
+            if (!$existing) {
                 AppSetting::create([
                     'key' => $key,
                     'value' => (string) $value,
                 ]);
+            } elseif ($key === 'ghost_request_timeout' && (int) $existing->value === 120) {
+                // Ensure legacy 120s timeout from prior draft is upgraded to verified 360s timeout
+                AppSetting::set($key, (string) $value);
             }
         }
     }
