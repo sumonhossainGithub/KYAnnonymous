@@ -81,6 +81,7 @@ class GhostAITest extends TestCase
         putenv('GHOST_AI_ENABLED=true');
         $_ENV['GHOST_AI_ENABLED'] = 'true';
         $_SERVER['GHOST_AI_ENABLED'] = 'true';
+        config(['ghost.enabled' => true]);
         AppSetting::set('ghost_ai_enabled', 'true');
         AppSetting::set('ghost_auto_reply_enabled', 'true');
         AppSetting::set('ghost_command_reply_enabled', 'true');
@@ -605,7 +606,7 @@ class GhostAITest extends TestCase
     }
 
     /**
-     * 22. Environment Kill Switch: When GHOST_AI_ENABLED is false in .env, Ghost is hard-disabled even if database is true.
+     * 22. Environment Kill Switch: When GHOST_AI_ENABLED is false in .env (or config), Ghost is hard-disabled even if database is true.
      */
     public function test_22_environment_kill_switch_suppresses_ai_even_when_database_enabled(): void
     {
@@ -613,6 +614,7 @@ class GhostAITest extends TestCase
         putenv('GHOST_AI_ENABLED=false');
         $_ENV['GHOST_AI_ENABLED'] = 'false';
         $_SERVER['GHOST_AI_ENABLED'] = 'false';
+        config(['ghost.enabled' => false]);
         AppSetting::set('ghost_ai_enabled', 'true');
 
         $this->assertFalse(GhostAIService::isGloballyEnabled());
@@ -636,6 +638,7 @@ class GhostAITest extends TestCase
         putenv('GHOST_AI_ENABLED=true');
         $_ENV['GHOST_AI_ENABLED'] = 'true';
         $_SERVER['GHOST_AI_ENABLED'] = 'true';
+        config(['ghost.enabled' => true]);
         AppSetting::set('ghost_ai_enabled', 'false');
 
         $this->assertFalse(GhostAIService::isGloballyEnabled());
@@ -669,5 +672,22 @@ class GhostAITest extends TestCase
 
         $this->assertNotEmpty($reply);
         $this->assertDoesNotMatchString('/<think>/i', $reply);
+    }
+
+    /**
+     * 25. Config Caching Safety: Ensures Ghost reads all infrastructure values via config() and not direct env().
+     */
+    public function test_25_config_caching_compatibility_reads_through_config_api(): void
+    {
+        // Simulate cached config
+        config(['ghost.enabled' => true]);
+        config(['ghost.max_output_tokens' => 20]);
+        config(['ghost.request_timeout' => 360]);
+        config(['ghost.max_pending_commands' => 5]);
+        config(['ghost.max_pending_auto' => 1]);
+
+        $aiService = app(GhostAIService::class);
+        $this->assertTrue(GhostAIService::isGloballyEnabled());
+        $this->assertSame('http://127.0.0.1:8081/v1/chat/completions', $aiService->getEndpoint());
     }
 }

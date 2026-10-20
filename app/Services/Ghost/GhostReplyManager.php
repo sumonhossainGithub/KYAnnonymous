@@ -78,9 +78,10 @@ class GhostReplyManager
         }
         RateLimiter::hit($limiterKey, 300);
 
-        // Check if pending command jobs are overloaded (max 5 pending commands in queue)
+        // Check if pending command jobs are overloaded (max bounded commands in queue)
+        $maxPending = (int) config('ghost.max_pending_commands', 5);
         $pendingCommands = DB::table('jobs')->where('queue', 'ghost-commands')->count();
-        if ($pendingCommands >= 5) {
+        if ($pendingCommands >= $maxPending) {
             Log::warning('Ghost AI command queue is full; dropping request to protect device.');
             return false;
         }
@@ -110,7 +111,7 @@ class GhostReplyManager
         }
 
         // Stage 1 Presence Check: Active user count
-        $maxUsers = (int) AppSetting::get('ghost_auto_reply_max_active_users', 3);
+        $maxUsers = (int) AppSetting::get('ghost_auto_reply_max_active_users', config('ghost.max_active_users', 3));
         $activeUserCount = $this->presenceTracker->getActiveUserCount();
 
         // MODE B RULE: When active users >= 4, Ghost MUST completely stop unsolicited auto-replies
@@ -133,9 +134,10 @@ class GhostReplyManager
         }
 
         // Prevent queue pileup: if any ghost-auto job is already pending, don't queue another
+        $maxPendingAuto = (int) config('ghost.max_pending_auto', 1);
         $pendingAutoJobs = DB::table('jobs')->where('queue', 'ghost-auto')->count();
-        if ($pendingAutoJobs > 0) {
-            Log::debug('Ghost AI auto-reply skipped: another auto job is already pending.');
+        if ($pendingAutoJobs >= $maxPendingAuto) {
+            Log::debug('Ghost AI auto-reply skipped: auto queue capacity reached.');
             return false;
         }
 

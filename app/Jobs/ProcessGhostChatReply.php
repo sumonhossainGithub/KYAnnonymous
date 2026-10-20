@@ -27,7 +27,7 @@ class ProcessGhostChatReply implements ShouldQueue
 
     /**
      * The number of seconds the job can run before timing out.
-     * Hierarchy: HTTP timeout (360s) < Worker timeout (400s) < Queue retry_after (450s) < Lock TTL (500s).
+     * Hierarchy: HTTP timeout (360s) < Job timeout (400s) < Worker timeout (420s) < Queue retry_after (480s) < Lock TTL (550s).
      */
     public int $timeout = 400;
 
@@ -72,8 +72,9 @@ class ProcessGhostChatReply implements ShouldQueue
         }
 
         // 2. Strict Concurrency Lock: physical concurrency MUST be <= 1
-        // We acquire a 500-second lock (> 400s worker timeout) while the slow local model runs inference
-        $lock = Cache::lock('ghost_ai_inference_lock', 500);
+        // We acquire a 550-second lock (> 420s worker timeout) while the slow local model runs inference
+        $lockTtl = (int) config('ghost.lock_ttl', 550);
+        $lock = Cache::lock('ghost_ai_inference_lock', $lockTtl);
 
         if (!$lock->get()) {
             if ($this->isExplicitCommand && $this->attempts() < 2) {
@@ -90,7 +91,7 @@ class ProcessGhostChatReply implements ShouldQueue
         try {
             // 3. Stage 2 Presence Check (Immediately before inference begins)
             if (!$this->isExplicitCommand) {
-                $maxUsers = (int) AppSetting::get('ghost_auto_reply_max_active_users', 3);
+                $maxUsers = (int) AppSetting::get('ghost_auto_reply_max_active_users', config('ghost.max_active_users', 3));
                 $activeCount = $presenceTracker->getActiveUserCount();
 
                 if ($activeCount > $maxUsers) {
@@ -103,7 +104,7 @@ class ProcessGhostChatReply implements ShouldQueue
             $context = $this->buildConversationContext();
 
             // 5. Run Local AI Inference
-            $maxTokens = (int) AppSetting::get('ghost_max_output_tokens', 32);
+            $maxTokens = (int) AppSetting::get('ghost_max_output_tokens', config('ghost.max_output_tokens', 32));
             $reply = $aiService->generateReply($context, $maxTokens);
 
             if (!$reply || trim($reply) === '') {
@@ -129,7 +130,7 @@ class ProcessGhostChatReply implements ShouldQueue
 
             // 7. Stage 3 Presence Check (Immediately before publishing)
             if (!$this->isExplicitCommand) {
-                $maxUsers = (int) AppSetting::get('ghost_auto_reply_max_active_users', 3);
+                $maxUsers = (int) AppSetting::get('ghost_auto_reply_max_active_users', config('ghost.max_active_users', 3));
                 $activeCount = $presenceTracker->getActiveUserCount();
 
                 if ($activeCount > $maxUsers) {
@@ -159,7 +160,7 @@ class ProcessGhostChatReply implements ShouldQueue
 
             // 9. Update Room Auto-Reply Cooldown if auto-reply
             if (!$this->isExplicitCommand) {
-                $cooldown = (int) AppSetting::get('ghost_auto_reply_cooldown_seconds', 300);
+                $cooldown = (int) AppSetting::get('ghost_auto_reply_cooldown_seconds', config('ghost.cooldown_seconds', 300));
                 Cache::put("ghost_ai:last_auto_reply:{$room->id}", time(), $cooldown);
             }
 
@@ -176,11 +177,12 @@ class ProcessGhostChatReply implements ShouldQueue
     {
         $context = [];
 
-        // Fetch last 4 messages in this room to provide immediate conversational continuity
+        // Fetch recent messages in this room to provide immediate conversational continuity
+        $limit = (int) config('ghost.context_message_limit', 4);
         $recentMessages = ChatMessage::where('chat_room_id', $this->chatRoomId)
             ->whereNull('parent_id')
             ->orderBy('id', 'desc')
-            ->take(4)
+            ->take($limit)
             ->get()
             ->reverse();
 

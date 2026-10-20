@@ -542,17 +542,17 @@ class AdminController extends Controller
         } catch (\Throwable) {}
 
         return Inertia::render('Admin/GhostAI', [
-            'env_master_enabled' => filter_var(env('GHOST_AI_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+            'env_master_enabled' => (bool) config('ghost.enabled', false),
             'effective_enabled' => \App\Services\Ghost\GhostAIService::isGloballyEnabled(),
             'settings' => [
                 'ghost_ai_enabled' => \App\Models\AppSetting::isTrue('ghost_ai_enabled'),
-                'ghost_ai_endpoint' => \App\Models\AppSetting::get('ghost_ai_endpoint', 'http://127.0.0.1:8081/v1/chat/completions'),
+                'ghost_ai_endpoint' => \App\Models\AppSetting::get('ghost_ai_endpoint', config('ghost.endpoint', 'http://127.0.0.1:8081/v1/chat/completions')),
                 'ghost_auto_reply_enabled' => \App\Models\AppSetting::isTrue('ghost_auto_reply_enabled'),
                 'ghost_command_reply_enabled' => \App\Models\AppSetting::isTrue('ghost_command_reply_enabled'),
-                'ghost_auto_reply_max_active_users' => (int) \App\Models\AppSetting::get('ghost_auto_reply_max_active_users', 3),
-                'ghost_auto_reply_cooldown_seconds' => (int) \App\Models\AppSetting::get('ghost_auto_reply_cooldown_seconds', 300),
-                'ghost_max_output_tokens' => (int) \App\Models\AppSetting::get('ghost_max_output_tokens', 32),
-                'ghost_request_timeout' => (int) \App\Models\AppSetting::get('ghost_request_timeout', 120),
+                'ghost_auto_reply_max_active_users' => (int) \App\Models\AppSetting::get('ghost_auto_reply_max_active_users', config('ghost.max_active_users', 3)),
+                'ghost_auto_reply_cooldown_seconds' => (int) \App\Models\AppSetting::get('ghost_auto_reply_cooldown_seconds', config('ghost.cooldown_seconds', 300)),
+                'ghost_max_output_tokens' => (int) \App\Models\AppSetting::get('ghost_max_output_tokens', config('ghost.max_output_tokens', 32)),
+                'ghost_request_timeout' => (int) \App\Models\AppSetting::get('ghost_request_timeout', config('ghost.request_timeout', 360)),
             ],
             'presence' => $presence,
             'health' => $health,

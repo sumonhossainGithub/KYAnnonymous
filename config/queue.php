@@ -27,7 +27,7 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('QUEUE_RETRY_AFTER', 450), // 450s > 400s worker timeout > 360s HTTP timeout
+            'retry_after' => (int) env('QUEUE_RETRY_AFTER', 480), // 480s > 420s worker timeout > 400s job timeout > 360s HTTP timeout
             'after_commit' => false,
         ],
 

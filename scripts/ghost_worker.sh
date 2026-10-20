@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# KYAnonymous Ghost AI V2 Background Worker for Android Termux
+# KYAnonymous Ghost AI V2 — Persistent Singleton Worker for Android Termux
 # ==============================================================================
 # Usage: bash scripts/ghost_worker.sh
-# Ensures only a SINGLE worker runs to protect Android ARM64 memory (~4 GB RAM)
+# Ensures only a SINGLE persistent worker runs to protect Android ARM64 (~4 GB RAM)
+# Stays resident in memory (no --stop-when-empty) to eliminate Laravel reboot churn.
 # ==============================================================================
 
 set -euo pipefail
@@ -11,46 +12,71 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PID_FILE="$PROJECT_ROOT/storage/framework/ghost_worker.pid"
+LOCK_FILE="$PROJECT_ROOT/storage/framework/ghost_worker.lock"
 
 cd "$PROJECT_ROOT"
 
-# Check if worker is already running
+# 1. Singleton Verification: Ensure only one supervisor instance runs
 if [ -f "$PID_FILE" ]; then
     OLD_PID=$(cat "$PID_FILE" 2>/dev/null || true)
     if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
-        echo "Ghost AI Worker is already running with PID: $OLD_PID"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Ghost AI Worker is already running with PID: $OLD_PID"
         exit 0
     fi
 fi
 
-# Save current PID
+# Save supervisor PID
 echo "$$" > "$PID_FILE"
 
-# Clean up PID file on exit
-trap 'rm -f "$PID_FILE"' EXIT INT TERM
+# Track child worker PID for clean shutdown
+CHILD_PID=""
 
-echo ""
+# Cleanup handler on exit or termination signals
+cleanup() {
+    echo ""
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Shutting down Ghost AI Worker supervisor (PID: $$)..."
+    if [ -n "$CHILD_PID" ] && kill -0 "$CHILD_PID" 2>/dev/null; then
+        kill -TERM "$CHILD_PID" 2>/dev/null || true
+        wait "$CHILD_PID" 2>/dev/null || true
+    fi
+    rm -f "$PID_FILE" "$LOCK_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Cleanup completed."
+}
+trap cleanup EXIT INT TERM
+
 echo "=========================================================="
-echo "  KYAnonymous Ghost AI Worker Started"
-echo "  PID: $$"
-echo "  Queues: ghost-commands (priority), ghost-auto"
-echo "  Concurrency: Strict Single-Thread (1)"
+echo "  KYAnonymous Ghost AI Persistent Worker Started"
+echo "  Supervisor PID : $$"
+echo "  Queues         : ghost-commands (priority), ghost-auto"
+echo "  Concurrency    : Strict Single-Thread (1)"
+echo "  Polling Sleep  : 3 seconds when queue is empty"
+echo "  Process Timeout: 420 seconds (7 mins)"
 echo "=========================================================="
-echo ""
 
 while true; do
-    # Run queue worker with safety timeouts tailored for ~0.1 tok/s inference
-    # --tries=1: never infinite-retry failed AI queries
-    # --timeout=410: allows 400s job timeout to finish or handle timeout cleanly
-    # --rest=2: allow CPU to cool between jobs
-    # --max-jobs=25: restart worker periodically to prevent PHP memory leaks
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Launching persistent queue:work daemon..."
+
+    # Run queue:work as a persistent daemon (NO --stop-when-empty)
+    # --queue: strictly isolated to AI queues (commands take priority)
+    # --sleep=3: wait 3s before polling SQLite when no jobs are present
+    # --tries=1: never infinite-retry slow failed AI jobs
+    # --timeout=420: worker process timeout (Hierarchy: 360s HTTP < 400s Job < 420s Worker < 480s retry_after < 550s Lock)
+    # --rest=2: rest CPU 2s between finished jobs to protect mobile thermals
+    # --max-jobs=50: recycle PHP worker after 50 jobs to release memory
+    # --memory=128: restart worker if PHP memory exceeds 128 MB
     php artisan queue:work database \
         --queue=ghost-commands,ghost-auto \
+        --sleep=3 \
         --tries=1 \
-        --timeout=410 \
+        --timeout=420 \
         --rest=2 \
-        --max-jobs=25 \
-        --stop-when-empty || true
+        --max-jobs=50 \
+        --memory=128 &
+    
+    CHILD_PID=$!
+    wait "$CHILD_PID" || true
+    CHILD_PID=""
 
-    sleep 3
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Queue worker process recycled cleanly. Restarting daemon in 2s..."
+    sleep 2
 done

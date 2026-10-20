@@ -26,14 +26,14 @@ EOT;
      * Check if Ghost AI is globally enabled across both environment and database settings.
      *
      * Precedence Rule:
-     * 1. GHOST_AI_ENABLED in .env is the Master Infrastructure Kill Switch. If false/off, Ghost is HARD DISABLED.
+     * 1. GHOST_AI_ENABLED in config/ghost.php is the Master Infrastructure Kill Switch.
      * 2. ghost_ai_enabled in AppSetting is the Runtime Super Admin Toggle.
      * Ghost only runs if BOTH are TRUE. If either is OFF, all AI operations are suppressed.
+     * Read through config() so that 'php artisan config:cache' works seamlessly.
      */
     public static function isGloballyEnabled(): bool
     {
-        $envMaster = filter_var(env('GHOST_AI_ENABLED', false), FILTER_VALIDATE_BOOLEAN);
-        if (!$envMaster) {
+        if (!config('ghost.enabled', false)) {
             return false;
         }
 
@@ -45,7 +45,7 @@ EOT;
      */
     public function getEndpoint(): string
     {
-        return AppSetting::get('ghost_ai_endpoint', env('GHOST_AI_ENDPOINT', 'http://127.0.0.1:8081/v1/chat/completions'));
+        return AppSetting::get('ghost_ai_endpoint', config('ghost.endpoint', 'http://127.0.0.1:8081/v1/chat/completions'));
     }
 
     /**
@@ -104,20 +104,21 @@ EOT;
     public function generateReply(array $conversationContext, ?int $maxTokens = null, ?int $timeout = null): ?string
     {
         $endpoint = $this->getEndpoint();
-        $apiKey = env('GHOST_AI_API_KEY', null);
-        $tokens = $maxTokens ?? (int) AppSetting::get('ghost_max_output_tokens', 32);
-        $timeoutSeconds = $timeout ?? (int) AppSetting::get('ghost_request_timeout', 120);
+        $apiKey = config('ghost.api_key', null);
+        $tokens = $maxTokens ?? (int) AppSetting::get('ghost_max_output_tokens', config('ghost.max_output_tokens', 32));
+        $timeoutSeconds = $timeout ?? (int) AppSetting::get('ghost_request_timeout', config('ghost.request_timeout', 360));
 
         // Build messages payload with strict system prompt
         $messages = [
             ['role' => 'system', 'content' => self::SYSTEM_PROMPT],
         ];
 
+        $charLimit = (int) config('ghost.context_max_chars_per_message', 200);
         foreach ($conversationContext as $item) {
             if (!empty($item['content']) && in_array($item['role'], ['user', 'assistant'])) {
                 $messages[] = [
                     'role' => $item['role'],
-                    'content' => mb_substr(trim($item['content']), 0, 300),
+                    'content' => mb_substr(trim($item['content']), 0, $charLimit),
                 ];
             }
         }
