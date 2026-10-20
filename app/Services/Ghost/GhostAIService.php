@@ -128,6 +128,9 @@ EOT;
             'max_tokens' => $tokens,
             'temperature' => 0.7,
             'stream' => false,
+            'chat_template_kwargs' => [
+                'enable_thinking' => false,
+            ],
         ];
 
         try {

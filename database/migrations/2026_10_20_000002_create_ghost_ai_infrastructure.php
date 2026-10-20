@@ -45,13 +45,13 @@ return new class extends Migration
         // 3. Populate default Ghost AI settings in app_settings (disabled by default until tested)
         $defaultSettings = [
             'ghost_ai_enabled' => 'false',
-            'ghost_ai_endpoint' => env('GHOST_AI_ENDPOINT', 'http://127.0.0.1:8081/v1/chat/completions'),
+            'ghost_ai_endpoint' => config('ghost.endpoint', 'http://127.0.0.1:8081/v1/chat/completions'),
             'ghost_auto_reply_enabled' => 'true',
             'ghost_command_reply_enabled' => 'true',
             'ghost_auto_reply_max_active_users' => '3',
             'ghost_auto_reply_cooldown_seconds' => '300',
             'ghost_max_output_tokens' => '32',
-            'ghost_request_timeout' => '120',
+            'ghost_request_timeout' => (string) config('ghost.request_timeout', 360),
             'ghost_max_concurrent_requests' => '1',
         ];
 

@@ -38,4 +38,20 @@ class CommandParser
     {
         return (bool) preg_match('/^\s*\/ai(?=\s|$)/i', $message);
     }
+
+    /**
+     * Strip the /ai command prefix if present, returning clean text.
+     *
+     * @param string $message
+     * @return string
+     */
+    public static function stripCommand(string $message): string
+    {
+        if (preg_match('/^\s*\/ai(?=\s|$)(.*)$/is', $message, $matches)) {
+            $prompt = trim($matches[1]);
+            return $prompt === '' ? 'hello' : $prompt;
+        }
+
+        return trim($message);
+    }
 }

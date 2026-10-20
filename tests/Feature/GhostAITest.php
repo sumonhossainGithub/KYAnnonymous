@@ -690,4 +690,139 @@ class GhostAITest extends TestCase
         $this->assertTrue(GhostAIService::isGloballyEnabled());
         $this->assertSame('http://127.0.0.1:8081/v1/chat/completions', $aiService->getEndpoint());
     }
+
+    /**
+     * 26. Fix 4: Heartbeat Preserves Login State, CSRF Token, and Existing Session Values.
+     */
+    public function test_26_heartbeat_preserves_login_state_csrf_token_and_session_values(): void
+    {
+        // 1. Initial request to establish session and CSRF token
+        $this->actingAs($this->user)->get('/chat');
+        $initialCsrf = session()->token();
+        $this->assertNotEmpty($initialCsrf);
+
+        // Put custom test session values
+        session()->put('user_test_token', 'secure_payload_value_998');
+        session()->put('custom_setting', 'dark_mode_active');
+        session()->save();
+
+        // 2. Call presence heartbeat
+        $response = $this->postJson('/presence/heartbeat');
+        $response->assertOk();
+        $response->assertJson(['status' => 'ok']);
+
+        // 3. Verify user remains authenticated
+        $this->assertAuthenticatedAs($this->user);
+
+        // 4. Verify CSRF token is preserved identically
+        $this->assertSame($initialCsrf, session()->token());
+
+        // 5. Verify custom session values are preserved
+        $this->assertSame('secure_payload_value_998', session()->get('user_test_token'));
+        $this->assertSame('dark_mode_active', session()->get('custom_setting'));
+
+        // 6. Verify payload in database was not wiped or replaced with empty array
+        $sessionId = session()->getId();
+        $rawPayload = DB::table('sessions')->where('id', $sessionId)->value('payload');
+        $this->assertNotEmpty($rawPayload);
+        $unpacked = unserialize(base64_decode($rawPayload));
+        $this->assertIsArray($unpacked);
+        $this->assertSame('secure_payload_value_998', $unpacked['user_test_token'] ?? null);
+    }
+
+    /**
+     * 27. Fix 5: Ghost jobs explicitly use 'database' queue connection and never run synchronously.
+     */
+    public function test_27_ghost_job_connection_is_explicitly_database_and_queued_asynchronously(): void
+    {
+        Queue::fake();
+        $this->simulateActiveUsers(1);
+
+        $job = new ProcessGhostChatReply(
+            chatRoomId: $this->room->id,
+            parentMessageId: null,
+            prompt: 'Hello Ghost',
+            isExplicitCommand: true,
+            triggerMessageId: 100
+        );
+
+        // Verify explicit connection property on instance
+        $this->assertSame('database', $job->connection);
+        $this->assertSame('ghost-commands', $job->queue);
+
+        // Verify when dispatched via chat endpoint
+        $response = $this->actingAs($this->user)->postJson("/chat/{$this->room->slug}/message", [
+            'message' => '/ai verify database connection',
+        ]);
+
+        $response->assertStatus(201);
+        Queue::assertPushed(ProcessGhostChatReply::class, function ($pushedJob) {
+            return $pushedJob->connection === 'database' && $pushedJob->queue === 'ghost-commands';
+        });
+    }
+
+    /**
+     * 28. Fix 6: Thread-Scoped Context Isolation and Command Stripping without Duplication.
+     */
+    public function test_28_conversation_context_scopes_to_thread_and_strips_command_without_duplication(): void
+    {
+        // 1. Thread Root Message
+        $rootThreadMsg = ChatMessage::create([
+            'chat_room_id' => $this->room->id,
+            'user_id' => $this->user->id,
+            'message' => 'Discussion about algorithms',
+        ]);
+
+        // 2. Reply in thread
+        $replyThreadMsg = ChatMessage::create([
+            'chat_room_id' => $this->room->id,
+            'parent_id' => $rootThreadMsg->id,
+            'user_id' => $this->user->id,
+            'message' => 'Specifically sorting algorithms',
+        ]);
+
+        // 3. Unrelated root message in same room
+        $unrelatedRootMsg = ChatMessage::create([
+            'chat_room_id' => $this->room->id,
+            'parent_id' => null,
+            'user_id' => $this->user->id,
+            'message' => 'Unrelated root chatter about weather',
+        ]);
+
+        // 4. Triggering message inside thread
+        $triggerMsg = ChatMessage::create([
+            'chat_room_id' => $this->room->id,
+            'parent_id' => $rootThreadMsg->id,
+            'user_id' => $this->user->id,
+            'message' => '/ai explain quicksort vs mergesort',
+        ]);
+
+        $job = new ProcessGhostChatReply(
+            chatRoomId: $this->room->id,
+            parentMessageId: $rootThreadMsg->id,
+            prompt: 'explain quicksort vs mergesort',
+            isExplicitCommand: true,
+            triggerMessageId: $triggerMsg->id
+        );
+
+        $reflection = new \ReflectionClass($job);
+        $method = $reflection->getMethod('buildConversationContext');
+        $method->setAccessible(true);
+        $context = $method->invoke($job);
+
+        // Verify context contents
+        $contents = array_column($context, 'content');
+
+        // Must contain root thread and thread reply
+        $this->assertContains('Discussion about algorithms', $contents);
+        $this->assertContains('Specifically sorting algorithms', $contents);
+
+        // Must NOT contain unrelated root chatter
+        $this->assertNotContains('Unrelated root chatter about weather', $contents);
+
+        // Trigger prompt must appear exactly once at the end with command stripped
+        $this->assertSame('explain quicksort vs mergesort', end($contents));
+        $occurrences = array_count_values($contents)['explain quicksort vs mergesort'] ?? 0;
+        $this->assertSame(1, $occurrences);
+    }
 }

@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\ChatMessage;
 use App\Models\ChatRoom;
 use App\Models\User;
+use App\Services\Ghost\CommandParser;
 use App\Services\Ghost\GhostAIService;
 use App\Services\Ghost\PresenceTracker;
 use Illuminate\Bus\Queueable;
@@ -41,6 +42,8 @@ class ProcessGhostChatReply implements ShouldQueue
         public bool $isExplicitCommand,
         public ?int $triggerMessageId = null
     ) {
+        // Fix 5: Explicitly force 'database' queue connection to guarantee asynchronous execution
+        $this->onConnection('database');
         // Set queue based on priority: explicit commands take precedence over automatic replies
         $this->onQueue($isExplicitCommand ? 'ghost-commands' : 'ghost-auto');
     }
@@ -172,39 +175,69 @@ class ProcessGhostChatReply implements ShouldQueue
 
     /**
      * Build recent conversational context for the model.
+     * Fix 6:
+     * - Scoped strictly to the active room and thread (supports replies inside threads).
+     * - Does not mix unrelated root messages when replying inside a thread.
+     * - Includes the actual triggering message exactly once with /ai stripped.
+     * - Strictly bounds history to prevent mobile prompt evaluation overload.
      */
     protected function buildConversationContext(): array
     {
         $context = [];
-
-        // Fetch recent messages in this room to provide immediate conversational continuity
-        $limit = (int) config('ghost.context_message_limit', 4);
-        $recentMessages = ChatMessage::where('chat_room_id', $this->chatRoomId)
-            ->whereNull('parent_id')
-            ->orderBy('id', 'desc')
-            ->take($limit)
-            ->get()
-            ->reverse();
-
         $ghostUserId = User::where('username_normalized', 'ghost_ai')->value('id');
+        $charLimit = (int) config('ghost.context_max_chars_per_message', 200);
 
-        foreach ($recentMessages as $msg) {
-            if (!empty($msg->message)) {
-                $role = ($msg->user_id === $ghostUserId) ? 'assistant' : 'user';
+        $priorMessages = collect();
+
+        if ($this->parentMessageId !== null) {
+            // THREAD CONTEXT: Scoped to this specific thread within the room
+            // 1. Fetch thread root message
+            $rootMessage = ChatMessage::where('id', $this->parentMessageId)
+                ->where('chat_room_id', $this->chatRoomId)
+                ->first();
+
+            // 2. Fetch recent replies in this thread strictly before the trigger message
+            $threadReplies = ChatMessage::where('chat_room_id', $this->chatRoomId)
+                ->where('parent_id', $this->parentMessageId)
+                ->when($this->triggerMessageId, fn ($q) => $q->where('id', '<', $this->triggerMessageId))
+                ->orderBy('id', 'desc')
+                ->take(3)
+                ->get()
+                ->reverse();
+
+            if ($rootMessage && (!$this->triggerMessageId || $rootMessage->id < $this->triggerMessageId)) {
+                $priorMessages->push($rootMessage);
+            }
+            $priorMessages = $priorMessages->concat($threadReplies);
+        } else {
+            // ROOT ROOM CONTEXT: Scoped to root messages in this room strictly before trigger
+            $priorMessages = ChatMessage::where('chat_room_id', $this->chatRoomId)
+                ->whereNull('parent_id')
+                ->when($this->triggerMessageId, fn ($q) => $q->where('id', '<', $this->triggerMessageId))
+                ->orderBy('id', 'desc')
+                ->take(3)
+                ->get()
+                ->reverse();
+        }
+
+        // Format prior messages
+        foreach ($priorMessages as $msg) {
+            $cleaned = CommandParser::stripCommand((string) $msg->message);
+            if ($cleaned !== '') {
+                $role = ($ghostUserId && $msg->user_id === $ghostUserId) ? 'assistant' : 'user';
                 $context[] = [
                     'role' => $role,
-                    'content' => $msg->message,
+                    'content' => mb_substr($cleaned, 0, $charLimit),
                 ];
             }
         }
 
-        // If context is empty or trigger prompt was explicitly supplied, append prompt
-        if (empty($context) || $this->isExplicitCommand) {
-            $context[] = [
-                'role' => 'user',
-                'content' => $this->prompt,
-            ];
-        }
+        // Append the triggering message EXACTLY ONCE as the active user input
+        $cleanPrompt = CommandParser::stripCommand($this->prompt);
+        $context[] = [
+            'role' => 'user',
+            'content' => mb_substr($cleanPrompt, 0, $charLimit),
+        ];
 
         return $context;
     }
