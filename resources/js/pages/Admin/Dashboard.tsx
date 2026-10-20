@@ -45,6 +45,7 @@ export default function Dashboard({ stats, recentLogs }: Props) {
     { title: 'Community Posts', value: stats.posts_count, icon: FileText, href: '/admin/posts' },
     { title: 'Chat Rooms', value: stats.chat_rooms_count, icon: MessageSquare, href: '/admin/chat-rooms' },
     { title: 'Online Users', value: stats.active_sessions_count, icon: Cpu, href: '/admin/stealth' },
+    { title: 'Ghost AI', value: 'Qwen3 4B', icon: Ghost, href: '/admin/ghost' },
     {
       title: 'Reports',
       value: stats.reports_pending,
@@ -72,6 +73,10 @@ export default function Dashboard({ stats, recentLogs }: Props) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Link href="/admin/ghost" className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition flex items-center gap-1.5 border bg-cyan-950/80 border-cyan-500 text-cyan-300 hover:bg-cyan-900/60">
+              <Ghost className="w-3.5 h-3.5 text-cyan-400" />
+              <span>GHOST AI</span>
+            </Link>
             <Link href="/admin/settings" className="button">Customize website</Link>
             <Link
               href="/admin/stealth"

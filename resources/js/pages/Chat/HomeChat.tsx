@@ -462,7 +462,8 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
 
               const message = item.message;
               const own = Boolean(message.is_own || mySentIds.has(message.public_id) || (auth.user && message.sender.public_id === auth.user?.public_id));
-              const isGhost = message.is_ghost || message.sender.is_ghost || message.is_guest;
+              const isAi = Boolean(message.sender.is_ai || message.sender.username === 'ghost_ai');
+              const isGhost = (message.is_ghost || message.sender.is_ghost || message.is_guest) && !isAi;
               const isSubChatOpen = activeSubChatId === message.public_id;
               const subCount = message.sub_chats?.length || message.sub_chats_count || 0;
               const isLastMessage = index === arr.length - 1;
@@ -473,7 +474,9 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                   key={message.public_id}
                 >
                   <span className="message-avatar font-mono overflow-hidden">
-                    {isGhost ? (
+                    {isAi ? (
+                      <Ghost size={14} className="text-cyan-300" />
+                    ) : isGhost ? (
                       <Ghost size={13} className="text-cyan-400" />
                     ) : message.sender.avatar_url ? (
                       <img src={message.sender.avatar_url} alt="" className="w-full h-full object-cover rounded-xl" />
@@ -483,11 +486,16 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                   </span>
 
                   <div className="chat-message-content">
-                    <div className="message-meta font-mono text-[11px]">
-                      <strong className={isGhost ? 'text-cyan-300' : 'text-slate-200'}>
+                    <div className="message-meta font-mono text-[11px] flex items-center gap-1.5">
+                      <strong className={isAi ? 'text-cyan-300 flex items-center gap-1' : (isGhost ? 'text-cyan-300' : 'text-slate-200')}>
                         {own ? 'You' : message.sender.display_name}
                       </strong>
-                      {!isGhost && !message.is_guest && (
+                      {isAi && (
+                        <span className="px-1 py-0.2 rounded bg-cyan-950/80 border border-cyan-500/40 text-[9px] text-cyan-300 font-mono">
+                          AI
+                        </span>
+                      )}
+                      {!isGhost && !isAi && !message.is_guest && (
                         <span className="text-slate-500">@{message.sender.username}</span>
                       )}
                     </div>
@@ -656,7 +664,8 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                         {message.sub_chats && message.sub_chats.length > 0 ? (
                           <div className="space-y-1.5 mb-2 max-h-48 overflow-y-auto pr-1">
                             {message.sub_chats.map((sub) => {
-                              const isSubGhost = sub.is_ghost || sub.sender.is_ghost || sub.is_guest;
+                              const isSubAi = Boolean(sub.sender.is_ai || sub.sender.username === 'ghost_ai');
+                              const isSubGhost = (sub.is_ghost || sub.sender.is_ghost || sub.is_guest) && !isSubAi;
                               const isSubOwn = Boolean(sub.is_own || mySentIds.has(sub.public_id) || (auth.user && sub.sender.public_id === auth.user?.public_id));
                               return (
                                 <div
@@ -668,7 +677,9 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                                   <div className="flex items-center justify-between text-[9px] font-mono mb-0.5">
                                     <span className="font-semibold text-slate-300 flex items-center gap-1">
                                       <span className="w-3.5 h-3.5 rounded-full overflow-hidden flex items-center justify-center bg-slate-800 flex-shrink-0">
-                                        {isSubGhost ? (
+                                        {isSubAi ? (
+                                          <Ghost size={10} className="text-cyan-300" />
+                                        ) : isSubGhost ? (
                                           <Ghost size={9} className="text-cyan-400" />
                                         ) : sub.sender.avatar_url ? (
                                           <img src={sub.sender.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -676,7 +687,8 @@ export default function HomeChat({ room, initialMessages, rooms, emergencyLockdo
                                           <span className="text-[8px] text-cyan-300 font-bold">{sub.sender.display_name.slice(0, 1).toUpperCase()}</span>
                                         )}
                                       </span>
-                                      <span className={isSubGhost ? 'text-cyan-300' : ''}>{isSubOwn ? 'You' : sub.sender.display_name}</span>
+                                      <span className={isSubAi || isSubGhost ? 'text-cyan-300' : ''}>{isSubOwn ? 'You' : sub.sender.display_name}</span>
+                                      {isSubAi && <span className="text-[7.5px] px-1 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300">AI</span>}
                                     </span>
                                     <span className="text-slate-500 opacity-60 group-hover:opacity-100 transition text-[8.5px]">{formatMessageTime(sub.raw_created_at, sub.created_at)}</span>
                                   </div>

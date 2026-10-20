@@ -7,7 +7,7 @@ import { siteThemeStyle } from '@/lib/siteTheme';
 type Room = ChatRoomSummary & { is_active: boolean };
 type Props = { settings: SiteSettings; defaults: SiteSettings; rooms: Room[] };
 const tabs = ['Branding', 'Content', 'Community', 'Chat', 'Rooms'] as const;
-const adminLinks = [['Dashboard', 'dashboard'], ['Members', 'users'], ['Posts', 'posts'], ['Reports', 'reports'], ['Notices', 'notices'], ['Organizations', 'organizations'], ['Room moderation', 'chat-rooms'], ['Privacy tools', 'stealth'], ['Audit logs', 'audit-logs'], ['Security events', 'security-events'], ['System health', 'system-health']];
+const adminLinks = [['Dashboard', 'dashboard'], ['Members', 'users'], ['Posts', 'posts'], ['Reports', 'reports'], ['Notices', 'notices'], ['Organizations', 'organizations'], ['Room moderation', 'chat-rooms'], ['Ghost AI', 'ghost'], ['Privacy tools', 'stealth'], ['Audit logs', 'audit-logs'], ['Security events', 'security-events'], ['System health', 'system-health']];
 
 function RoomEditor({ room }: { room?: Room }) {
   const form = useForm({ name: room?.name || '', description: room?.description || '', is_active: room?.is_active ?? true });

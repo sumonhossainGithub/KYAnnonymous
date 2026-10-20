@@ -30,6 +30,7 @@ Complete version provenance and verification notes are documented in [`docs/VERI
 4. **Single Super Admin (§22):** Exactly one Super Admin account is permitted in the entire system, enforced both by the application CLI and a PostgreSQL partial unique index.
 5. **Atomic Voting (§14):** Upvotes and downvotes are computed transactionally (`SELECT ... FOR UPDATE`) with a composite unique index preventing race conditions or duplicate voting.
 6. **HTTP-Driven Chat with WebSocket Broadcasts (§19, §20):** Messages are sent via authenticated HTTP POST for strict authorization, rate limiting, and ban checks, before broadcasting through Reverb.
+7. **Ghost AI V2 Companion:** Integrated offline-capable AI companion running on a local ARM64 `llama.cpp` inference engine. Features intelligent Mode A/B traffic gating (auto-reply only when active users ≤ 3, explicit `/ai` commands always supported), strict single-thread mobile concurrency protection, and real-time Super Admin controls (`/admin/ghost`). Documented in [`docs/GHOST_AI.md`](docs/GHOST_AI.md).
 
 ---
 

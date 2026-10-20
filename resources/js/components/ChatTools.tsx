@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshCw, Search, X, Ghost } from 'lucide-react';
+import { RefreshCw, Search, X } from 'lucide-react';
 import NotificationToggle from '@/components/NotificationToggle';
 
 interface Props {
@@ -80,7 +80,7 @@ export default function ChatTools({
             </span>
           </div>
 
-          {/* Right: Search, Refresh, and Ghost Mode in right corner */}
+          {/* Right: Search & Refresh */}
           <div className="flex items-center gap-1 flex-shrink-0">
             {/* Desktop inline search */}
             <div className="hidden sm:flex items-center gap-1 bg-slate-900/80 border border-slate-800/80 focus-within:border-cyan-500/70 rounded px-1.5 py-0 h-[17px] w-24 md:w-32 transition">
@@ -131,15 +131,6 @@ export default function ChatTools({
             >
               <RefreshCw size={11} className={!connected ? 'animate-spin text-amber-400' : ''} />
             </button>
-
-            {/* Ghost Mode Badge in Right Corner */}
-            <div
-              className="ghost-mode-tag flex items-center gap-1 px-1.5 py-0 rounded bg-cyan-950/80 border border-cyan-500/40 text-[8px] sm:text-[8.5px] font-mono text-cyan-300 leading-tight flex-shrink-0 select-none"
-              title="Ghost Mode Active"
-            >
-              <Ghost size={9.5} className="text-cyan-400 flex-shrink-0" />
-              <span>Ghost Mode</span>
-            </div>
           </div>
         </>
       )}

@@ -26,6 +26,9 @@ Route::post('/chat/{slug}/polls/{pollPublicId}/vote', [CommunityController::clas
 Route::post('/chat/{slug}/polls/{pollPublicId}/retract', [CommunityController::class, 'retractVote'])->middleware('not_banned');
 Route::delete('/chat/{slug}/polls/{pollPublicId}', [CommunityController::class, 'deletePoll'])->middleware(['auth', 'not_banned']);
 
+// Site-wide Presence Heartbeat (Zero IP / server timestamp only)
+Route::post('/presence/heartbeat', [\App\Http\Controllers\PresenceController::class, 'heartbeat'])->name('presence.heartbeat');
+
 // Guest Authentication Routes
 Route::middleware('guest')->group(function () {
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
@@ -99,5 +102,11 @@ Route::middleware(['auth', 'not_banned'])->group(function () {
         Route::get('/audit-logs', [AdminController::class, 'auditLogs'])->name('admin.audit_logs');
         Route::get('/security-events', [AdminController::class, 'securityEvents'])->name('admin.security_events');
         Route::get('/system-health', [AdminController::class, 'systemHealth'])->name('admin.system_health');
+
+        // Ghost AI Companion Management
+        Route::get('/ghost', [AdminController::class, 'ghostAi'])->name('admin.ghost');
+        Route::post('/ghost/settings', [AdminController::class, 'updateGhostSettings'])->name('admin.ghost.settings');
+        Route::post('/ghost/cancel-queue', [AdminController::class, 'cancelGhostQueue'])->name('admin.ghost.cancel_queue');
+        Route::post('/ghost/test-connection', [AdminController::class, 'testGhostConnection'])->name('admin.ghost.test_connection');
     });
 });

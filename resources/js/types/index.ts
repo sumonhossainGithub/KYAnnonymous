@@ -103,6 +103,7 @@ export interface ChatSender {
   display_name: string;
   username: string;
   is_ghost?: boolean;
+  is_ai?: boolean;
   is_guest?: boolean;
   avatar_url?: string | null;
 }

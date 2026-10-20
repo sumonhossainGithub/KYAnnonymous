@@ -127,6 +127,10 @@ class AuthController extends Controller
             return back()->withErrors(['username' => 'No account found with this username.']);
         }
 
+        if ($user->username_normalized === 'ghost_ai') {
+            return back()->withErrors(['username' => 'Ghost AI is an automated chat companion service account and cannot be logged into.']);
+        }
+
         $passwordMatches = false;
         try {
             $passwordMatches = Hash::check($request->password, $user->password);

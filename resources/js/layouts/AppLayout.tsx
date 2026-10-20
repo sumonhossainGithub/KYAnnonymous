@@ -106,6 +106,46 @@ export default function AppLayout({ children, hideFooter }: { children: ReactNod
     }
   }, [paused]);
 
+  // Site-wide lightweight presence heartbeat
+  useEffect(() => {
+    let lastHeartbeat = 0;
+    const sendHeartbeat = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const now = Date.now();
+      if (now - lastHeartbeat < 45000) return;
+      lastHeartbeat = now;
+
+      const token = typeof document !== 'undefined'
+        ? document.cookie.split('; ').find((c) => c.startsWith('XSRF-TOKEN='))?.slice('XSRF-TOKEN='.length)
+        : '';
+
+      fetch('/presence/heartbeat', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': token ? decodeURIComponent(token) : '',
+        },
+      }).catch(() => {});
+    };
+
+    sendHeartbeat();
+    const timer = window.setInterval(sendHeartbeat, 50000);
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        sendHeartbeat();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
   const current = navigation.find((item) =>
     item.href === '/' ? url.split('?')[0] === '/' : url.startsWith(item.href)
   );

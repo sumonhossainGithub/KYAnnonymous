@@ -522,4 +522,121 @@ class AdminController extends Controller
             ],
         ]);
     }
+
+    public function ghostAi(Request $request)
+    {
+        $presenceTracker = app(\App\Services\Ghost\PresenceTracker::class);
+        $aiService = app(\App\Services\Ghost\GhostAIService::class);
+
+        $health = $aiService->checkHealth();
+        $presence = $presenceTracker->getPresenceBreakdown();
+
+        $pendingCommands = 0;
+        $pendingAuto = 0;
+        $failedGhostJobs = 0;
+
+        try {
+            $pendingCommands = DB::table('jobs')->where('queue', 'ghost-commands')->count();
+            $pendingAuto = DB::table('jobs')->where('queue', 'ghost-auto')->count();
+            $failedGhostJobs = DB::table('failed_jobs')->where('queue', 'like', 'ghost%')->count();
+        } catch (\Throwable) {}
+
+        return Inertia::render('Admin/GhostAI', [
+            'env_master_enabled' => filter_var(env('GHOST_AI_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+            'effective_enabled' => \App\Services\Ghost\GhostAIService::isGloballyEnabled(),
+            'settings' => [
+                'ghost_ai_enabled' => \App\Models\AppSetting::isTrue('ghost_ai_enabled'),
+                'ghost_ai_endpoint' => \App\Models\AppSetting::get('ghost_ai_endpoint', 'http://127.0.0.1:8081/v1/chat/completions'),
+                'ghost_auto_reply_enabled' => \App\Models\AppSetting::isTrue('ghost_auto_reply_enabled'),
+                'ghost_command_reply_enabled' => \App\Models\AppSetting::isTrue('ghost_command_reply_enabled'),
+                'ghost_auto_reply_max_active_users' => (int) \App\Models\AppSetting::get('ghost_auto_reply_max_active_users', 3),
+                'ghost_auto_reply_cooldown_seconds' => (int) \App\Models\AppSetting::get('ghost_auto_reply_cooldown_seconds', 300),
+                'ghost_max_output_tokens' => (int) \App\Models\AppSetting::get('ghost_max_output_tokens', 32),
+                'ghost_request_timeout' => (int) \App\Models\AppSetting::get('ghost_request_timeout', 120),
+            ],
+            'presence' => $presence,
+            'health' => $health,
+            'queue' => [
+                'connection' => config('queue.default'),
+                'pending_commands' => $pendingCommands,
+                'pending_auto' => $pendingAuto,
+                'total_pending' => $pendingCommands + $pendingAuto,
+                'failed_count' => $failedGhostJobs,
+                'is_locked' => \Illuminate\Support\Facades\Cache::has('ghost_ai_inference_lock'),
+            ],
+            'last_success' => \Illuminate\Support\Facades\Cache::get('ghost_ai:last_success'),
+            'last_error' => \Illuminate\Support\Facades\Cache::get('ghost_ai:last_error'),
+            'recentLogs' => AdminAuditLog::with('admin')
+                ->where('target_type', 'ghost_ai')
+                ->orWhere('action', 'like', 'GHOST_%')
+                ->orderBy('created_at', 'desc')
+                ->take(8)
+                ->get(),
+        ]);
+    }
+
+    public function updateGhostSettings(Request $request)
+    {
+        $data = $request->validate([
+            'ghost_ai_enabled' => ['required', 'boolean'],
+            'ghost_ai_endpoint' => ['required', 'string', 'url'],
+            'ghost_auto_reply_enabled' => ['required', 'boolean'],
+            'ghost_command_reply_enabled' => ['required', 'boolean'],
+            'ghost_auto_reply_max_active_users' => ['required', 'integer', 'min:0', 'max:50'],
+            'ghost_auto_reply_cooldown_seconds' => ['required', 'integer', 'min:10', 'max:3600'],
+            'ghost_max_output_tokens' => ['required', 'integer', 'min:8', 'max:256'],
+            'ghost_request_timeout' => ['required', 'integer', 'min:10', 'max:600'],
+        ]);
+
+        foreach ($data as $key => $value) {
+            \App\Models\AppSetting::set($key, is_bool($value) ? ($value ? 'true' : 'false') : (string) $value);
+        }
+
+        AdminAuditLog::create([
+            'admin_id' => $request->user()->id,
+            'action' => 'GHOST_SETTINGS_UPDATED',
+            'target_type' => 'ghost_ai',
+            'safe_metadata' => $data,
+        ]);
+
+        return back()->with('success', 'Ghost AI settings saved successfully.');
+    }
+
+    public function cancelGhostQueue(Request $request)
+    {
+        $deleted = 0;
+        try {
+            $deleted = DB::table('jobs')->whereIn('queue', ['ghost-commands', 'ghost-auto'])->delete();
+        } catch (\Throwable) {}
+
+        \Illuminate\Support\Facades\Cache::forget('ghost_ai_inference_lock');
+
+        AdminAuditLog::create([
+            'admin_id' => $request->user()->id,
+            'action' => 'GHOST_QUEUE_CANCELLED',
+            'target_type' => 'ghost_ai',
+            'safe_metadata' => ['cancelled_jobs' => $deleted],
+        ]);
+
+        return back()->with('success', "Cancelled {$deleted} pending Ghost AI jobs and released inference lock.");
+    }
+
+    public function testGhostConnection(Request $request)
+    {
+        $aiService = app(\App\Services\Ghost\GhostAIService::class);
+        $health = $aiService->checkHealth();
+
+        AdminAuditLog::create([
+            'admin_id' => $request->user()->id,
+            'action' => 'GHOST_HEALTH_CHECK_TESTED',
+            'target_type' => 'ghost_ai',
+            'safe_metadata' => $health,
+        ]);
+
+        if ($health['status'] === 'ONLINE') {
+            return back()->with('success', "AI Server is reachable! Response latency: {$health['latency_ms']}ms.");
+        }
+
+        return back()->withErrors(['endpoint' => "AI Server ping failed: " . ($health['error'] ?? 'Unreachable')]);
+    }
 }

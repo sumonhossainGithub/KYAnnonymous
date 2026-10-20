@@ -233,6 +233,18 @@ class CommunityController extends Controller
 
     protected function formatSender(ChatMessage $m, bool $adminStealth): array
     {
+        if ($m->sender && $m->sender->username_normalized === 'ghost_ai') {
+            return [
+                'public_id' => $m->sender->public_id,
+                'display_name' => 'Ghost',
+                'username' => 'ghost_ai',
+                'is_ghost' => false,
+                'is_ai' => true,
+                'is_guest' => false,
+                'avatar_url' => $m->sender->avatar_url ?: '/images/ghost-avatar.svg',
+            ];
+        }
+
         $isGhost = (bool) ($m->is_ghost ?? false);
         $isGuest = (bool) ($m->is_guest ?? false);
         $isSuper = $m->sender && $m->sender->isSuperAdmin();
@@ -482,6 +494,12 @@ class CommunityController extends Controller
         ]);
 
         $request->session()->push('my_message_ids', $chatMsg->public_id);
+
+        try {
+            app(\App\Services\Ghost\GhostReplyManager::class)->handleNewMessage($chatMsg, $room, $user);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('GhostReplyManager error: ' . $e->getMessage());
+        }
 
         return $request->expectsJson() ? response()->json($this->chatPayload($request, $room), 201)->header('Cache-Control', 'no-store') : back();
     }

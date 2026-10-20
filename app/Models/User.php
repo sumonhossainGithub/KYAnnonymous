@@ -72,6 +72,11 @@ class User extends Authenticatable
         return $this->role === 'SUPER_ADMIN';
     }
 
+    public function isGhostAi(): bool
+    {
+        return $this->username_normalized === 'ghost_ai';
+    }
+
     public function isBanned(): bool
     {
         return $this->status === 'BANNED';
